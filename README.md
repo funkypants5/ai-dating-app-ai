@@ -4,10 +4,10 @@ This is the AI microservice component of the AI Dating App ecosystem. It provide
 
 ## Architecture
 
-This AI service works as a separate microservice that communicates with the main NestJS backend:
+This AI service works as a separate microservice that communicates with the frontend:
 
 ```
-Frontend (React Native) → NestJS Backend → AI Service (FastAPI) → Google Gemini
+Frontend (React Native) → AI Service (FastAPI)
 ```
 
 ## Features

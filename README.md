@@ -66,7 +66,7 @@ The API will be available at: `http://YOUR_IP_ADDRESS:8000`
 
 Once running, visit:
 
-- **Swagger UI**: `http://127.0.0.1:8000` (recommended)
+- **Swagger UI**: `http://127.0.0.1:8000/docs` (recommended)
 - **ReDoc**: `http://127.0.0.1:8000/redoc`
 
 ## API Endpoints

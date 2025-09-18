@@ -6,7 +6,7 @@ load_dotenv(".env")
 
 def init_ai():
     os.environ["LANGSMITH_TRACING"] = "false"
-    os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
-    model = init_chat_model("gemini-2.5-flash", model_provider="google_genai")
+    os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+    model = init_chat_model("gpt-3.5-turbo", model_provider="openai")
     return model
 

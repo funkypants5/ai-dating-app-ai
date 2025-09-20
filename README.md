@@ -13,6 +13,8 @@ Frontend (React Native) → AI Service (FastAPI)
 ## Features
 
 - **Bio Generation**: Creates personalized dating bios based on user interests
+- **Prompt Enhancement**: Improves user responses to dating prompts
+- **Lovabot**: AI dating coach with RAG-powered advice from dating articles
 - **AI-Powered Matching**: Analyzes user compatibility (planned)
 - **Conversation Starters**: Generates ice-breaker messages (planned)
 - **Content Moderation**: AI-powered content filtering (planned)
@@ -20,7 +22,8 @@ Frontend (React Native) → AI Service (FastAPI)
 ## Prerequisites
 
 - Python 3.9 or higher
-- Google Gemini API key
+- OpenAI API key (for GPT models)
+- Google Gemini API key (for embeddings)
 - Access to the main NestJS backend
 
 ## Installation
@@ -44,14 +47,29 @@ Frontend (React Native) → AI Service (FastAPI)
    # Copy the example environment file
    cp .env.copy .env
 
-   # Edit .env file and add your Google Gemini API key
-   # Replace YOUR_GOOGLE_API_KEY_HERE with your actual API key
+   # Edit .env file and add your API keys
+   # Replace the placeholder values with your actual API keys
    ```
 
-4. **Get Google Gemini API Key**
-   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Create a new API key
-   - Copy the key and paste it in your `.env` file
+4. **Get API Keys**
+
+   - **OpenAI API Key**: Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+   - **Google Gemini API Key**: Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Copy the keys and paste them in your `.env` file
+
+5. **One-Time Setup: Generate Lovabot Embeddings**
+
+   ```bash
+   # Run this once to process all PDFs and create embeddings
+   python setup_embeddings.py
+   ```
+
+   This will:
+
+   - Read all PDF files from `ai/ai_lovabot/data/` folder
+   - Process and create embeddings for the dating articles
+   - Save embeddings to `ai/ai_lovabot/embeddings.pkl`
+   - Commit the `.pkl` file to git so others don't need to run this step
 
 ## Running the Service
 
@@ -71,7 +89,7 @@ Once running, visit:
 
 ## API Endpoints
 
-### POST /bio
+### POST /ai/bio
 
 Generate personalized dating bios based on user interests.
 
@@ -91,6 +109,55 @@ Generate personalized dating bios based on user interests.
   "Photography and cooking are my passions. Let's explore the world together through food and lens.",
   "Adventure seeker who loves hiking and capturing moments. Ready to create memories with the right person!"
 ]
+```
+
+### POST /ai/prompts
+
+Enhance user responses to dating prompts.
+
+**Request:**
+
+```json
+{
+  "question": "What's your ideal Sunday?",
+  "answer": "Sleeping in"
+}
+```
+
+**Response:**
+
+```json
+"Perfect lazy Sunday vibes! I love sleeping in and having a slow morning with coffee and maybe some Netflix. What's your go-to lazy day routine?"
+```
+
+### POST /ai/lovabot
+
+Chat with Lovabot - your AI dating coach with access to dating articles and advice.
+
+**Request:**
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "How do I start a conversation on a dating app?"
+    },
+    {
+      "role": "assistant",
+      "content": "Start with something specific from their profile..."
+    },
+    { "role": "user", "content": "What if they don't respond?" }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "answer": "Don't worry if they don't respond immediately! People get busy. Try a follow-up message after a few days, or focus on other matches. Remember, it's not personal - keep the positive energy! 💕"
+}
 ```
 
 ## Integration with Main Backend
@@ -121,9 +188,10 @@ async generateBio(interests: string[]) {
 Create a `.env` file with the following variables:
 
 ```env
+OPENAI_API_KEY=your_openai_api_key_here
 GOOGLE_API_KEY=your_google_gemini_api_key_here
-LANGSMITH_API_KEY=your_langsmith_key_here  # Optional for tracing (Needed in future)
-LANGSMITH_PROJECT=your_project_name        # Optional for tracing (Needed in future)
+LANGSMITH_API_KEY=your_langsmith_key_here  # Optional for tracing
+LANGSMITH_PROJECT=your_project_name        # Optional for tracing
 ```
 
 ## Development
@@ -133,16 +201,23 @@ LANGSMITH_PROJECT=your_project_name        # Optional for tracing (Needed in fut
 ```
 ai-dating-app-ai/
 ├── main.py                 # FastAPI application
+├── setup_embeddings.py     # One-time setup script for Lovabot
 ├── requirements.txt        # Python dependencies
 ├── .env.copy              # Environment template
 ├── .env                   # Your environment variables (ignored by git)
 ├── .gitignore
 ├── README.md
 └── ai/
-    └── profile_management/
-        ├── ai_profile_management.py  # AI model initialization
-        ├── ai_bio_generator.md       # Bio generation prompts
-        └── ai_prompt_generator.md    # Other AI prompts
+    ├── profile_management/
+    │   ├── ai_profile_management.py  # AI model initialization
+    │   ├── ai_bio_generator.md       # Bio generation prompts
+    │   └── ai_prompt_generator.md    # Prompt enhancement prompts
+    └── ai_lovabot/
+        ├── ai_lovabot.py             # Lovabot with RAG functionality
+        ├── ai_lovabot_instructions.md # Lovabot system prompt
+        ├── embeddings.pkl            # Pre-processed embeddings (generated)
+        └── data/                     # Dating articles (PDFs)
+            └── Article 1 dating.pdf
 ```
 
 ### Adding New AI Features

@@ -18,13 +18,13 @@ Return ONLY the enhanced response text. No explanations, no conversation, just t
 
 ## Examples
 
-**Original:** "I love traveling and trying new foods"
-**Enhanced:** "Always planning my next adventure - discovered incredible street food in Bangkok last month!" (98 chars)
+**Original:** I love traveling and trying new foods
+**Enhanced:** "Always planning my next adventure - discovered incredible street food in Bangkok last month!"
 
-**Original:** "I enjoy reading and coffee"
-**Enhanced:** "You'll find me in cozy coffee shops with a good book, debating that new oat milk latte." (89 chars)
+**Original:** I enjoy reading and coffee
+**Enhanced:** You'll find me in cozy coffee shops with a good book, debating that new oat milk latte.
 
-**Original:** "I like hiking and nature"
-**Enhanced:** "Happiest on mountain trails with my camera, capturing sunrises most people sleep through." (90 chars)
+**Original:** I like hiking and nature
+**Enhanced:** Happiest on mountain trails with my camera, capturing sunrises most people sleep through.
 
-Return only the enhanced response.
+Return only the enhanced response. Do not include the quotation marks, " "

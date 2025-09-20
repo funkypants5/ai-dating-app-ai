@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ai.profile_management.ai_profile_management import init_ai
+from ai.ai_lovabot.ai_lovabot import chat as lovabot_chat
 from langchain_core.messages import SystemMessage, HumanMessage
 
 app = FastAPI()
@@ -72,3 +73,16 @@ Please generate an enhanced version of the user's answer that is more engaging a
     response = model.invoke([system_prompt, human_prompt])
     
     return response.content.strip()
+
+@app.post("/ai/lovabot")
+def generate_lovabot_response(request: dict):
+    # Extract messages from request
+    messages = request.get("messages", [])
+    
+    if not messages:
+        return {"answer": "No messages provided."}
+    
+    # Use lovabot chat function with RAG
+    response = lovabot_chat(messages)
+    return response
+    

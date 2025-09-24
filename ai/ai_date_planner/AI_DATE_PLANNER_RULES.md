@@ -22,35 +22,37 @@ The system automatically suggests different numbers of activities based on date 
 
 ### 2. **Time-Based Meal Planning**
 
-The system plans meals based on **actual time windows**, not time-of-day classifications:
+The system plans meals based on **actual time windows** with intelligent sequential planning:
 
 #### 🍽️ **Meal Time Windows**
 
-| Meal Type            | Time Window   | Conditions                                                        |
-| -------------------- | ------------- | ----------------------------------------------------------------- |
-| **Coffee/Breakfast** | 6:00 - 11:00  | If date starts between 6-11 AM                                    |
-| **Lunch**            | 12:00 - 14:00 | If date spans lunch time (starts before 12:00, ends after 12:00)  |
-| **Coffee Break**     | 14:00 - 17:00 | If date starts before 2 PM AND duration > 6 hours                 |
-| **Dinner**           | 17:00 - 19:30 | If date spans dinner time (starts before 17:00, ends after 17:00) |
-| **Late Dinner**      | 21:00 - 02:00 | If date starts after 9 PM OR before 2 AM                          |
+| Meal Type            | Time Window   | Duration  | Conditions                                                        |
+| -------------------- | ------------- | --------- | ----------------------------------------------------------------- |
+| **Coffee/Breakfast** | 6:00 - 11:00  | 1.0 hour  | If date starts between 6-11 AM                                    |
+| **Lunch**            | 12:00 - 14:00 | 1.5 hours | If date spans lunch time (starts before 12:00, ends after 12:00)  |
+| **Coffee Break**     | 14:00 - 16:00 | 1.0 hour  | If date spans 14:00-16:00 AND max 1 coffee break per date         |
+| **Dinner**           | 17:00 - 20:00 | 2.0 hours | If date spans dinner time (starts before 20:00, ends after 17:00) |
+| **Late Dinner**      | 21:00 - 02:00 | 2.0 hours | If date starts after 21:00 OR before 2 AM                         |
 
 #### 🎯 **Smart Meal Logic**
 
-- **Multiple meals** are planned for longer dates that span multiple meal windows
-- **Travel time** is automatically calculated between meal locations
-- **Activity gaps** are filled with appropriate attractions/activities
-- **Duration-based** activity selection (shorter activities for gaps, longer for main slots)
+- **Sequential planning** - Activities planned one after another with travel time
+- **Flexible durations** - Meal durations adapt to available time (minimum 30 minutes)
+- **Meal prioritization** - Meals are prioritized over activities when time windows align
+- **Travel time integration** - Realistic travel time calculated between all locations
+- **Coffee break limits** - Maximum 1 coffee break per date to prevent duplicates
 
 #### 📅 **Example Scenarios**
 
 - **7:00-10:00 (3 hours):** Coffee/Breakfast + Activities (no lunch - doesn't span 12:00-14:00)
-- **9:00-13:00 (4 hours):** Coffee/Breakfast + Lunch + Activities (spans 12:00-14:00)
-- **14:00-17:00 (3 hours):** Activities only (no dinner - doesn't span 17:00-19:30)
-- **15:00-19:00 (4 hours):** Activities + Dinner (spans 17:00-19:30)
-- **18:00-21:00 (3 hours):** Dinner + Activities (spans 17:00-19:30)
-- **10:00-18:00 (8 hours):** Coffee/Breakfast + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-19:30)
-- **9:00-19:00 (10 hours):** Coffee/Breakfast + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-19:30)
-- **21:00-01:00 (4 hours):** Late Dinner + Nightlife
+- **9:00-13:00 (4 hours):** Coffee/Breakfast + Activities + Lunch (spans 12:00-14:00, lunch duration adapts to 0.6 hours)
+- **14:00-17:00 (3 hours):** Lunch + Coffee Break (spans lunch and coffee break windows)
+- **15:00-19:00 (4 hours):** Activities + Dinner (spans 17:00-20:00)
+- **18:00-21:00 (3 hours):** Dinner + Activities (spans 17:00-20:00)
+- **10:00-18:00 (8 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-20:00)
+- **9:00-19:00 (10 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-20:00)
+- **21:00-01:00 (4 hours):** Late Dinner + Activities (Late Dinner for night dates)
+- **14:00-21:00 (7 hours):** Lunch + Coffee Break + Sports + Dinner (perfect sports date with all meals)
 
 ## 🔧 Hardcoded Elements
 
@@ -75,18 +77,18 @@ The system plans meals based on **actual time windows**, not time-of-day classif
 - `"Cultural Visit"` - For museums/galleries
 - `"Sports Activity"` - For sports facilities (dynamically categorized)
 
-### **Duration Times (Hardcoded)**
+### **Duration Times (Flexible)**
 
-| Activity Type    | Duration      | Time Window | Notes                            |
-| ---------------- | ------------- | ----------- | -------------------------------- |
-| Coffee/Breakfast | 1.0 hours     | 6:00-11:00  | Fixed                            |
-| Lunch            | 1.5 hours     | 11:00-15:00 | Fixed                            |
-| Dinner           | 2.0 hours     | 17:00-22:00 | Fixed                            |
-| Late Dinner      | 2.0 hours     | 21:00-02:00 | Fixed                            |
-| Coffee Break     | 1.0 hours     | 14:00-17:00 | Fixed                            |
-| Walk             | 0.5-2.0 hours | Any time    | Variable based on available time |
-| Cultural Visit   | 0.5-3.0 hours | Any time    | Variable based on available time |
-| Sports Activity  | 1.0-4.0 hours | Any time    | Variable based on available time |
+| Activity Type    | Duration      | Time Window | Notes                                              |
+| ---------------- | ------------- | ----------- | -------------------------------------------------- |
+| Coffee/Breakfast | 1.0 hours     | 6:00-11:00  | Fixed                                              |
+| Lunch            | 1.5 hours     | 12:00-14:00 | **Flexible** - adapts to available time (min 0.5h) |
+| Dinner           | 2.0 hours     | 17:00-20:00 | Fixed                                              |
+| Late Dinner      | 2.0 hours     | 21:00-02:00 | Fixed                                              |
+| Coffee Break     | 1.0 hours     | 14:00-16:00 | Fixed                                              |
+| Walk             | 0.5-2.0 hours | Any time    | Variable based on available time                   |
+| Cultural Visit   | 0.5-3.0 hours | Any time    | Variable based on available time                   |
+| Sports Activity  | 1.0-4.0 hours | Any time    | Variable based on available time                   |
 
 ### **Activity Sequencing (Dynamic)**
 

@@ -4,6 +4,10 @@ from ai.profile_management.ai_profile_management import init_ai
 from ai.ai_lovabot.ai_lovabot import chat as lovabot_chat
 from langchain_core.messages import SystemMessage, HumanMessage
 
+# --- AI Re-ranker imports ---
+from ai.discover_profiles.models import Payload
+from ai.discover_profiles.ranking import rank_recommendations
+
 app = FastAPI()
 
 # Add CORS middleware
@@ -86,3 +90,11 @@ def generate_lovabot_response(request: dict):
     response = lovabot_chat(messages)
     return response
     
+# ==============================
+# AI Re-ranker
+# ==============================
+
+@app.post("/rank/recommendations")
+def rank_recommendations_endpoint(payload: Payload):
+    """Rank candidate profiles based on compatibility with user."""
+    return rank_recommendations(payload)

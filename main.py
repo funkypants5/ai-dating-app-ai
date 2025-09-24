@@ -14,6 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ai.ai_date_planner.ai_date_planner import AIDatePlanner
 from ai.ai_date_planner.rule_engine import UserPreferences
 
+# --- AI Re-ranker imports ---
+from ai.discover_profiles.models import Payload
+from ai.discover_profiles.ranking import rank_recommendations
+
 app = FastAPI()
 
 # Initialize the AI Date Planner
@@ -158,3 +162,11 @@ def plan_date(request: DatePlanRequest):
         return {"error": f"Error planning date: {str(e)}"}
 
     
+# ==============================
+# AI Re-ranker
+# ==============================
+
+@app.post("/rank/recommendations")
+def rank_recommendations_endpoint(payload: Payload):
+    """Rank candidate profiles based on compatibility with user."""
+    return rank_recommendations(payload)

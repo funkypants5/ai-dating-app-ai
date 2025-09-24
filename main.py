@@ -3,8 +3,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai.profile_management.ai_profile_management import init_ai
 from ai.ai_lovabot.ai_lovabot import chat as lovabot_chat
 from langchain_core.messages import SystemMessage, HumanMessage
+from pydantic import BaseModel
+from typing import List, Optional
+import sys
+import os
+
+# Add the current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from ai.ai_date_planner.ai_date_planner import AIDatePlanner
+from ai.ai_date_planner.rule_engine import UserPreferences
 
 app = FastAPI()
+
+# Initialize the AI Date Planner
+planner = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the AI Date Planner on startup"""
+    global planner
+    try:
+        planner = AIDatePlanner(data_dir="ai/ai_date_planner/data")
+        print("✅ AI Date Planner initialized successfully!")
+    except Exception as e:
+        print(f"❌ Failed to initialize AI Date Planner: {e}")
+        raise
 
 # Add CORS middleware
 app.add_middleware(
@@ -85,4 +109,52 @@ def generate_lovabot_response(request: dict):
     # Use lovabot chat function with RAG
     response = lovabot_chat(messages)
     return response
+
+# Date Planner Models
+class DatePlanRequest(BaseModel):
+    start_time: str = "10:00"
+    end_time: Optional[str] = None
+    start_latitude: Optional[float] = None
+    start_longitude: Optional[float] = None
+    interests: List[str] = ["food", "culture", "nature"]
+    budget_tier: str = "$$"
+    date_type: str = "casual"
+    preferred_location_types: List[str] = ["food", "attraction", "activity", "heritage"]
+    user_query: Optional[str] = None
+
+@app.post("/ai/plan-date")
+def plan_date(request: DatePlanRequest):
+    """Plan a date based on user preferences"""
+    if planner is None:
+        return {"error": "AI Date Planner not initialized"}
+    
+    try:
+        # Convert request to UserPreferences
+        preferences = UserPreferences(
+            start_time=request.start_time,
+            end_time=request.end_time,
+            start_latitude=request.start_latitude,
+            start_longitude=request.start_longitude,
+            interests=request.interests,
+            budget_tier=request.budget_tier,
+            date_type=request.date_type,
+            preferred_location_types=request.preferred_location_types
+        )
+        
+        # Plan the date
+        result = planner.plan_date(preferences, request.user_query)
+        
+        return {
+            "success": True,
+            "itinerary": result.date_plan.itinerary,
+            "total_duration": result.date_plan.total_duration,
+            "estimated_cost": result.date_plan.estimated_cost,
+            "summary": result.date_plan.summary,
+            "alternative_suggestions": result.date_plan.alternative_suggestions,
+            "processing_stats": result.processing_stats
+        }
+        
+    except Exception as e:
+        return {"error": f"Error planning date: {str(e)}"}
+
     

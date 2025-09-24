@@ -1,0 +1,689 @@
+[
+  {
+    "test_name": "Early Morning Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "07:00",
+        "end_time": "08:00",
+        "activity": "Coffee/Breakfast",
+        "location": "HUA FONG KEE FOOD COURT PTE LTD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.0,
+        "description": "Start your day with Food place: HUA FONG KEE FOOD COURT PTE LTD..."
+      },
+      {
+        "start_time": "08:06",
+        "end_time": "10:06",
+        "activity": "Morning Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy a peaceful walk at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 3.0,
+    "estimated_cost": "$20-$40 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: HUA FONG KEE FOOD COURT PTE LTD",
+      "issues": [
+        "Missing address for: HUA FONG KEE FOOD COURT PTE LTD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 248,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Morning to Afternoon Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "09:00",
+        "end_time": "10:00",
+        "activity": "Coffee/Breakfast",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.0,
+        "description": "Start your day with Food place: AH SIN FAMILY EATING HOUSE..."
+      },
+      {
+        "start_time": "10:06",
+        "end_time": "12:06",
+        "activity": "Morning Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy a peaceful walk at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "12:12",
+        "end_time": "13:12",
+        "activity": "Light Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 1.0,
+        "description": "Engage in Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$70-$100 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected meal: Lunch, Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing expected meal: Lunch",
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Afternoon Cultural Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "14:00",
+        "end_time": "15:30",
+        "activity": "Lunch",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.5,
+        "description": "Enjoy lunch at Food place: AH SIN FAMILY EATING HOUSE..."
+      },
+      {
+        "start_time": "15:36",
+        "end_time": "17:06",
+        "activity": "Cultural Visit",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 1.5,
+        "description": "Explore Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 3.0,
+    "estimated_cost": "$50-$70 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Afternoon to Evening Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "15:00",
+        "end_time": "16:30",
+        "activity": "Lunch",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.5,
+        "description": "Enjoy lunch at Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "16:39",
+        "end_time": "19:09",
+        "activity": "Cultural Visit",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.5,
+        "description": "Explore Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$100-$120 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected meal: Dinner, Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing expected meal: Dinner",
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Evening Romantic Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "18:00",
+        "end_time": "20:00",
+        "activity": "Dinner",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 2.0,
+        "description": "Romantic dinner at Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "20:09",
+        "end_time": "21:09",
+        "activity": "Sunset Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 1.0,
+        "description": "Enjoy sunset views at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 3.0,
+    "estimated_cost": "$100-$120 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Evening to Night Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "19:00",
+        "end_time": "21:00",
+        "activity": "Dinner",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 2.0,
+        "description": "Romantic dinner at Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "21:09",
+        "end_time": "23:09",
+        "activity": "Sunset Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy sunset views at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "23:15",
+        "end_time": "23:15",
+        "activity": "Sports Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 0.0,
+        "description": "Enjoy sports activity at Co Curricular Activities Branch - Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$120-$150 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Night Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "21:00",
+        "end_time": "23:00",
+        "activity": "Late Dinner",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 2.0,
+        "description": "Late night dining at Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "23:06",
+        "end_time": "00:06",
+        "activity": "Nightlife",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 1.0,
+        "description": "Experience nightlife at Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 3.0,
+    "estimated_cost": "$100-$120 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Night to Early Morning Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "22:00",
+        "end_time": "00:00",
+        "activity": "Late Dinner",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 2.0,
+        "description": "Late night dining at Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "00:06",
+        "end_time": "02:06",
+        "activity": "Nightlife",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 2.0,
+        "description": "Experience nightlife at Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$100-$120 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Full Day Adventure",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "activity": "Coffee/Breakfast",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.0,
+        "description": "Start your day with Food place: AH SIN FAMILY EATING HOUSE..."
+      },
+      {
+        "start_time": "11:06",
+        "end_time": "13:06",
+        "activity": "Morning Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy a peaceful walk at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "13:12",
+        "end_time": "18:12",
+        "activity": "Light Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 5.0,
+        "description": "Engage in Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 8.0,
+    "estimated_cost": "$70-$100 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected meal: Lunch, Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing expected meal: Lunch",
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Extended Romantic Day",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "09:00",
+        "end_time": "10:00",
+        "activity": "Coffee/Breakfast",
+        "location": "JUMBO PREMIUM SEAFOOD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.0,
+        "description": "Start your day with Food place: JUMBO PREMIUM SEAFOOD..."
+      },
+      {
+        "start_time": "10:09",
+        "end_time": "12:09",
+        "activity": "Morning Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy a peaceful walk at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "12:15",
+        "end_time": "19:15",
+        "activity": "Light Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 7.0,
+        "description": "Engage in Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 10.0,
+    "estimated_cost": "$120-$150 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected meal: Lunch, Missing expected meal: Coffee Break, Missing address for: JUMBO PREMIUM SEAFOOD",
+      "issues": [
+        "Missing expected meal: Lunch",
+        "Missing expected meal: Coffee Break",
+        "Missing address for: JUMBO PREMIUM SEAFOOD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 175,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Low Budget Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "12:00",
+        "end_time": "13:30",
+        "activity": "Lunch",
+        "location": "HUA FONG KEE FOOD COURT PTE LTD",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.5,
+        "description": "Enjoy lunch at Food place: HUA FONG KEE FOOD COURT PTE LTD..."
+      },
+      {
+        "start_time": "13:36",
+        "end_time": "16:06",
+        "activity": "Cultural Visit",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.5,
+        "description": "Explore Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$20-$40 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: HUA FONG KEE FOOD COURT PTE LTD",
+      "issues": [
+        "Missing address for: HUA FONG KEE FOOD COURT PTE LTD"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 248,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "High Budget Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "18:00",
+        "end_time": "20:00",
+        "activity": "Dinner",
+        "location": "CRUST GOURMET PIZZA BAR",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 2.0,
+        "description": "Romantic dinner at Food place: CRUST GOURMET PIZZA BAR..."
+      },
+      {
+        "start_time": "20:06",
+        "end_time": "22:06",
+        "activity": "Sunset Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy sunset views at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "22:12",
+        "end_time": "22:12",
+        "activity": "Sports Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 0.0,
+        "description": "Enjoy sports activity at Co Curricular Activities Branch - Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$220-$250 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: CRUST GOURMET PIZZA BAR",
+      "issues": [
+        "Missing address for: CRUST GOURMET PIZZA BAR"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 270,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Sports Focused Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "14:00",
+        "end_time": "15:30",
+        "activity": "Lunch",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.5,
+        "description": "Enjoy lunch at Food place: AH SIN FAMILY EATING HOUSE..."
+      },
+      {
+        "start_time": "15:36",
+        "end_time": "18:06",
+        "activity": "Cultural Visit",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.5,
+        "description": "Explore Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      }
+    ],
+    "total_duration": 4.0,
+    "estimated_cost": "$50-$70 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected activity type: activity, Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing expected activity type: activity",
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 2,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Culture Focused Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "activity": "Coffee/Breakfast",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.0,
+        "description": "Start your day with Food place: AH SIN FAMILY EATING HOUSE..."
+      },
+      {
+        "start_time": "11:06",
+        "end_time": "13:06",
+        "activity": "Morning Walk",
+        "location": "MacRitchie Singapore & Singapore Nature Reserve",
+        "address": "MacRitchie Reservoir Park",
+        "type": "attraction",
+        "duration": 2.0,
+        "description": "Enjoy a peaceful walk at Tourist attraction: MacRitchie Singapore & Singapore Nature Reserve..."
+      },
+      {
+        "start_time": "13:12",
+        "end_time": "15:12",
+        "activity": "Light Activity",
+        "location": "Co Curricular Activities Branch",
+        "address": "21, Evans Road, Singapore 259366",
+        "type": "activity",
+        "duration": 2.0,
+        "description": "Engage in Activity venue: Co Curricular Activities Branch..."
+      }
+    ],
+    "total_duration": 5.0,
+    "estimated_cost": "$70-$100 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing expected meal: Lunch, Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing expected meal: Lunch",
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 3,
+      "embeddings_ready": true
+    }
+  },
+  {
+    "test_name": "Very Short Date",
+    "success": false,
+    "itinerary": [
+      {
+        "start_time": "12:00",
+        "end_time": "13:30",
+        "activity": "Lunch",
+        "location": "AH SIN FAMILY EATING HOUSE",
+        "address": "Address not available",
+        "type": "food",
+        "duration": 1.5,
+        "description": "Enjoy lunch at Food place: AH SIN FAMILY EATING HOUSE..."
+      }
+    ],
+    "total_duration": 2.0,
+    "estimated_cost": "$50-$70 per person",
+    "validation": {
+      "success": false,
+      "message": "Issues found: Missing address for: AH SIN FAMILY EATING HOUSE",
+      "issues": [
+        "Missing address for: AH SIN FAMILY EATING HOUSE"
+      ]
+    },
+    "processing_stats": {
+      "total_locations": 31636,
+      "filtered_locations": 245,
+      "relevant_locations": 50,
+      "final_activities": 1,
+      "embeddings_ready": true
+    }
+  }
+]

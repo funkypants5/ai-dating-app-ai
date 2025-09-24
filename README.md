@@ -15,6 +15,7 @@ Frontend (React Native) → AI Service (FastAPI)
 - **Bio Generation**: Creates personalized dating bios based on user interests
 - **Prompt Enhancement**: Improves user responses to dating prompts
 - **Lovabot**: AI dating coach with RAG-powered advice from dating articles
+- **AI Date Planner**: Intelligent date planning with location-based recommendations
 - **AI-Powered Matching**: Analyzes user compatibility (planned)
 - **Conversation Starters**: Generates ice-breaker messages (planned)
 - **Content Moderation**: AI-powered content filtering (planned)
@@ -57,19 +58,27 @@ Frontend (React Native) → AI Service (FastAPI)
    - **Google Gemini API Key**: Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Copy the keys and paste them in your `.env` file
 
-5. **One-Time Setup: Generate Lovabot Embeddings**
+5. **One-Time Setup: Generate RAG Embeddings**
+
+   **For Lovabot (Chat System):**
 
    ```bash
-   # Run this once to process all PDFs and create embeddings
-   python setup_embeddings.py
+   # Run this once to process all PDFs and create embeddings for Lovabot
+   python setup_lovabot_embeddings.py
+   ```
+
+   **For AI Date Planner (Location System):**
+
+   ```bash
+   # Run this once to generate embeddings for all locations and test the date planner
+   python setup_date_planner_embeddings.py
    ```
 
    This will:
 
-   - Read all PDF files from `ai/ai_lovabot/data/` folder
-   - Process and create embeddings for the dating articles
-   - Save embeddings to `ai/ai_lovabot/embeddings.pkl`
-   - Commit the `.pkl` file to git so others don't need to run this step
+   - **Lovabot**: Read all PDF files from `ai/ai_lovabot/data/` folder, process and create embeddings for dating articles, save to `ai/ai_lovabot/embeddings.pkl`
+   - **Date Planner**: Load all location data from GeoJSON/KML files, generate embeddings for locations, save to `ai/ai_date_planner/embeddings/` folder
+   - Both systems will be ready to use after running these setup scripts
 
 ## Running the Service
 
@@ -160,6 +169,66 @@ Chat with Lovabot - your AI dating coach with access to dating articles and advi
 }
 ```
 
+### POST /ai/plan-date
+
+Plan a complete date itinerary using AI-powered location recommendations.
+
+**Request:**
+
+```json
+{
+  "start_time": "10:00",
+  "end_time": "17:00",
+  "start_latitude": 1.3521,
+  "start_longitude": 103.8198,
+  "interests": ["food", "culture", "nature"],
+  "budget_tier": "$$",
+  "date_type": "romantic",
+  "preferred_location_types": ["food", "attraction", "activity", "heritage"],
+  "user_query": "romantic date with city views"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "itinerary": [
+    {
+      "time": "10:00",
+      "activity": "Lunch",
+      "location": "Marina Bay Sands Food Court",
+      "type": "food",
+      "duration": 1.5,
+      "description": "Enjoy lunch at Marina Bay Sands Food Court..."
+    },
+    {
+      "time": "11:30",
+      "activity": "Cultural Visit",
+      "location": "ArtScience Museum",
+      "type": "attraction",
+      "duration": 3.0,
+      "description": "Explore ArtScience Museum..."
+    }
+  ],
+  "total_duration": 7.0,
+  "estimated_cost": "$50-$100 per person",
+  "summary": "Your 7.0-hour romantic date: • 10:00: Lunch at Marina Bay Sands Food Court • 11:30: Cultural Visit at ArtScience Museum",
+  "alternative_suggestions": [
+    "Alternative food: ION Orchard Food Hall",
+    "Alternative attraction: Gardens by the Bay"
+  ],
+  "processing_stats": {
+    "total_locations": 10000,
+    "filtered_locations": 200,
+    "relevant_locations": 50,
+    "final_activities": 2,
+    "embeddings_ready": true
+  }
+}
+```
+
 ## Integration with Main Backend
 
 This AI service is designed to be called by the main NestJS backend:
@@ -200,24 +269,37 @@ LANGSMITH_PROJECT=your_project_name        # Optional for tracing
 
 ```
 ai-dating-app-ai/
-├── main.py                 # FastAPI application
-├── setup_embeddings.py     # One-time setup script for Lovabot
-├── requirements.txt        # Python dependencies
-├── .env.copy              # Environment template
-├── .env                   # Your environment variables (ignored by git)
+├── main.py                              # FastAPI application
+├── setup_lovabot_embeddings.py          # One-time setup script for Lovabot RAG
+├── setup_date_planner_embeddings.py     # One-time setup script for Date Planner RAG
+├── requirements.txt                     # Python dependencies
+├── .env.copy                           # Environment template
+├── .env                                # Your environment variables (ignored by git)
 ├── .gitignore
 ├── README.md
 └── ai/
     ├── profile_management/
-    │   ├── ai_profile_management.py  # AI model initialization
-    │   ├── ai_bio_generator.md       # Bio generation prompts
-    │   └── ai_prompt_generator.md    # Prompt enhancement prompts
-    └── ai_lovabot/
-        ├── ai_lovabot.py             # Lovabot with RAG functionality
-        ├── ai_lovabot_instructions.md # Lovabot system prompt
-        ├── embeddings.pkl            # Pre-processed embeddings (generated)
-        └── data/                     # Dating articles (PDFs)
-            └── Article 1 dating.pdf
+    │   ├── ai_profile_management.py     # AI model initialization
+    │   ├── ai_bio_generator.md          # Bio generation prompts
+    │   └── ai_prompt_generator.md       # Prompt enhancement prompts
+    ├── ai_lovabot/
+    │   ├── ai_lovabot.py                # Lovabot with RAG functionality
+    │   ├── ai_lovabot_instructions.md   # Lovabot system prompt
+    │   ├── embeddings.pkl               # Pre-processed embeddings (generated)
+    │   └── data/                        # Dating articles (PDFs)
+    │       └── Article 1 dating.pdf
+    └── ai_date_planner/
+        ├── ai_date_planner.py           # Main date planning orchestrator
+        ├── data_processor.py            # Location data processing
+        ├── embedding_service.py         # Location embeddings service
+        ├── rule_engine.py               # Rule-based filtering
+        ├── rag_service.py               # RAG-based location retrieval
+        ├── embeddings/                  # Location embeddings (generated)
+        └── data/                        # Location data (GeoJSON/KML)
+            ├── EatingEstablishments.geojson
+            ├── HeritageTrails.kml
+            ├── SportSGSportFacilitiesGEOJSON.geojson
+            └── TouristAttractions.geojson
 ```
 
 ### Adding New AI Features

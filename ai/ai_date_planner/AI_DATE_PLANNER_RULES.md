@@ -6,7 +6,7 @@ The AI Date Planner uses a **hybrid approach** combining:
 
 - **Rule-based filtering** (deterministic)
 - **RAG (Retrieval-Augmented Generation)** (AI-powered semantic search)
-- **LLM integration** (Gemini for natural language output)
+- **LLM integration** (GPT-3.5 Turbo for intelligent query parsing)
 
 ## ✅ Current Status
 
@@ -17,7 +17,42 @@ The AI Date Planner uses a **hybrid approach** combining:
 - ✅ **Flexible meal durations** that adapt to available time
 - ✅ **Smart interest filtering** with food exceptions
 - ✅ **Complete address system** (Google Maps ready)
+- ✅ **LLM query parsing** for intelligent activity prioritization
 - ✅ **Comprehensive test coverage** for all use cases
+
+## 🤖 LLM Integration
+
+### **Intelligent Query Parsing**
+
+The system uses **GPT-3.5 Turbo** to intelligently parse user queries and extract:
+
+- **Inclusions**: What activities the user wants (e.g., "I want a walk and sports")
+- **Exclusions**: What activities to avoid (e.g., "no cultural activities")
+- **Activity counts**: How many of each type (e.g., "2 sports activities")
+- **Confidence scores**: How certain the LLM is about its parsing
+
+### **Smart Activity Prioritization**
+
+The LLM parsing results are used to:
+
+1. **Prioritize requested activities** - If user wants sports, sports activities are planned first
+2. **Respect exclusions** - If user says "no cultural", cultural activities are avoided
+3. **Handle contradictions** - If user says "no cultural but with museums", the LLM intelligently resolves this
+4. **Fallback gracefully** - If LLM parsing fails, simple keyword matching is used
+
+### **Example LLM Parsing**
+
+```
+User Query: "I want a walk and sports"
+LLM Output: {
+  "inclusions": [
+    {"activity_type": "nature", "count": 1, "priority": "high"},
+    {"activity_type": "sports", "count": 1, "priority": "high"}
+  ],
+  "exclusions": [],
+  "confidence_score": 0.85
+}
+```
 
 ## 🎯 Core Planning Rules
 

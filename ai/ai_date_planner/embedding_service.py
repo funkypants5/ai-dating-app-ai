@@ -30,6 +30,34 @@ class EmbeddingService:
             print(f"Loading Sentence-BERT model: {self.model_name}")
             self.model = SentenceTransformer(self.model_name)
             print("Model loaded successfully!")
+
+    def ensure_index_ready(self, force_rebuild: bool = False):
+        """Ensure FAISS index is available by loading or building from embeddings.
+
+        This will:
+        - Load embeddings from disk if not in memory
+        - Load an existing FAISS index from disk when present
+        - Otherwise, build the FAISS index from current embeddings and save it
+        """
+        # Load embeddings if not loaded
+        if self.embeddings is None or not isinstance(self.embeddings, np.ndarray):
+            try:
+                self.load_embeddings()
+            except FileNotFoundError:
+                # Nothing to do if embeddings don't exist yet
+                raise
+
+        # Load existing index if present
+        if not force_rebuild and os.path.exists(self.index_file):
+            try:
+                self.index = faiss.read_index(self.index_file)
+                return
+            except Exception:
+                # Fall back to rebuild
+                pass
+
+        # Build a new index from embeddings
+        self.build_faiss_index(self.embeddings, force_rebuild=force_rebuild)
     
     def generate_location_text(self, location: Location) -> str:
         """

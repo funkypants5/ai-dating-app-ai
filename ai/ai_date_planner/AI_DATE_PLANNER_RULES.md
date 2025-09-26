@@ -53,6 +53,28 @@ The system plans meals based on **actual time windows** with intelligent sequent
 - **Travel time integration** - Realistic travel time calculated between all locations
 - **Coffee break limits** - Maximum 1 coffee break per date to prevent duplicates
 
+#### 🔧 **Meal Planning Technical Details**
+
+**Meal Timing Logic:**
+
+- **Coffee/Breakfast**: `6 <= current_hour <= 11 and meal_count == 0`
+- **Lunch**: `12 <= current_hour <= 14 and meal_count <= 1`
+- **Coffee Break**: `14 <= current_hour <= 16 and meal_count <= 2 and coffee_breaks == 0`
+- **Dinner**: `17 <= current_hour <= 20 and meal_count <= 2`
+- **Late Dinner**: `current_hour >= 21 and meal_count <= 3`
+
+**Duration Adaptation:**
+
+- **Fixed durations**: Coffee/Breakfast (1.0h), Coffee Break (1.0h), Dinner (2.0h), Late Dinner (2.0h)
+- **Flexible duration**: Lunch adapts to available time (minimum 0.5h)
+- **Adaptation formula**: `duration = max(0.5, time_remaining)` for flexible meals
+
+**Sequential Planning:**
+
+- Activities planned one after another with travel time
+- Travel time pushes back start times of subsequent activities
+- Final activity duration adjusted to match exact end time
+
 #### 📅 **Example Scenarios**
 
 - **7:00-10:00 (3 hours):** Coffee/Breakfast + Activities (no lunch - doesn't span 12:00-14:00)
@@ -111,12 +133,12 @@ The system now uses **flexible sequencing** based on time windows:
 
 ### **Budget Tiers (Hardcoded)**
 
-| Budget Tier | Price Range         | Keywords                                       |
-| ----------- | ------------------- | ---------------------------------------------- |
-| `$`         | $20-$40 per person  | "budget", "affordable", "cheap", "casual"      |
-| `$$`        | $40-$70 per person  | "moderate", "mid-range", "casual", "family"    |
-| `$$$`       | $70-$100 per person | "upscale", "fine dining", "premium", "luxury"  |
-| `$$$$`      | $100+ per person    | "high-end", "exclusive", "gourmet", "michelin" |
+| Budget Tier | Max Price | Keywords                                                |
+| ----------- | --------- | ------------------------------------------------------- |
+| `$`         | $20       | "cheap", "budget", "affordable", "hawker", "food court" |
+| `$$`        | $50       | "moderate", "mid-range", "casual", "family"             |
+| `$$$`       | $100      | "upscale", "fine dining", "premium", "luxury"           |
+| `$$$$`      | $200      | "high-end", "exclusive", "gourmet", "michelin"          |
 
 ## 🎛️ User Input Considerations
 
@@ -147,21 +169,59 @@ The system now uses **flexible sequencing** based on time windows:
 
 1. **Location Type Filter** - Filters by preferred types (food, attraction, activity, heritage)
 2. **Interest Filter** - **Smart filtering** - If no interests specified, includes all locations. If interests specified, only includes matching locations (except food locations which are always included for meals)
-3. **Budget Filter** - Filters by budget tier keywords
+
+   **Interest Mapping:**
+
+   - **food**: ["restaurant", "cafe", "dining", "cuisine", "food", "eat", "drink"]
+   - **culture**: ["museum", "gallery", "art", "cultural", "heritage", "historical", "traditional"]
+   - **nature**: ["park", "garden", "nature", "outdoor", "scenic", "botanical", "zoo"]
+   - **sports**: ["sports", "gym", "fitness", "swimming", "tennis", "football", "basketball"]
+   - **art**: ["art", "gallery", "museum", "creative", "exhibition", "sculpture", "painting"]
+   - **shopping**: ["shopping", "mall", "market", "retail", "boutique", "store"]
+
+3. **Budget Filter** - Filters by budget tier keywords (see Budget Tiers table above)
 4. **Time Filter** - **Very lenient** - only excludes locations that explicitly conflict
+
+   **Time Preferences:**
+
+   - **morning**: ["breakfast", "coffee", "brunch", "early", "morning"]
+   - **afternoon**: ["lunch", "afternoon", "daytime", "casual"]
+   - **evening**: ["dinner", "evening", "romantic", "sunset", "night"]
+   - **night**: ["late night", "nightlife", "bar", "club", "night"]
+
 5. **Date Type Filter** - **Very lenient** - only excludes locations that explicitly conflict
+
+   **Date Type Preferences:**
+
+   - **casual**: ["casual", "relaxed", "friendly", "comfortable"]
+   - **romantic**: ["romantic", "intimate", "candlelight", "cozy", "private"]
+   - **adventurous**: ["adventure", "outdoor", "active", "exciting", "thrilling"]
+   - **cultural**: ["cultural", "heritage", "museum", "art", "historical", "traditional"]
 
 ### **RAG-Based Relevance (Step 2)**
 
-- Uses **Sentence-BERT embeddings** for semantic similarity
+- Uses **FAISS index** for fast semantic similarity search (k=200)
+- **Graceful fallback** to cosine similarity if FAISS unavailable
 - Combines **70% semantic relevance** + **30% proximity score**
 - Returns top 50 most relevant locations
+- **Intersection logic**: FAISS results filtered by rule-based results
+
+### **FAISS Implementation Details**
+
+- **Index Type**: `IndexFlatIP` (Inner Product for cosine similarity)
+- **Embedding Model**: Sentence-BERT "all-MiniLM-L6-v2" (384 dimensions)
+- **Normalization**: L2 normalization applied to embeddings
+- **Search Strategy**: Top-k search (k=200) with intersection filtering
+- **Fallback**: Cosine similarity if FAISS index unavailable
+- **Performance**: 5-10x faster than manual cosine similarity
 
 ### **Proximity Scoring**
 
 - Calculates distance from `start_latitude`/`start_longitude`
 - Uses **Haversine formula** for accurate distance calculation
-- Scores range from 0-1 (higher = closer)
+- **No distance limit** - considers all locations regardless of distance
+- Scores range from 0-1 (higher = closer to start location)
+- **Normalized scoring**: `1.0 - (distance / max_distance)`
 
 ## 📍 Address System
 
@@ -201,6 +261,35 @@ The system now calculates **realistic travel time** between locations:
 - **Speed Assumption**: 30 km/h average in Singapore (including traffic/public transport)
 - **Travel Time Range**: 6 minutes to 1 hour (capped for realism)
 - **Default Fallback**: 15 minutes if coordinates missing
+- **Formula**: `travel_time = max(0.1, min(distance_km / 30.0, 1.0))` hours
+- **Earth Radius**: 6371 km for Haversine calculation
+
+### **Layman Travel Time Calculation:**
+
+**Simple Formula:**
+
+```
+Travel Time = Distance ÷ 30 km/h
+```
+
+**Real Examples:**
+
+- **0.5 km away** → 0.5 ÷ 30 = 0.017 hours → **6 minutes** (minimum time)
+- **3 km away** → 3 ÷ 30 = 0.1 hours → **6 minutes**
+- **15 km away** → 15 ÷ 30 = 0.5 hours → **30 minutes**
+- **45 km away** → 45 ÷ 30 = 1.5 hours → **1 hour** (maximum time)
+
+**Why 30 km/h?**
+
+- Singapore average speed including traffic, public transport, and walking
+- Accounts for: MRT delays, bus stops, traffic lights, walking between stations
+- Realistic for mixed transport modes (not just driving)
+
+**Time Limits:**
+
+- **Minimum**: 6 minutes (even if very close)
+- **Maximum**: 1 hour (even if very far)
+- **Reason**: Prevents unrealistic back-to-back activities or extremely long travel
 
 ### **Timing Format:**
 

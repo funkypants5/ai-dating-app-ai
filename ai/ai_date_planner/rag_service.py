@@ -46,12 +46,42 @@ class RAGService:
         
         print(f"Generated query embedding for: '{query_text[:100]}...'")
         
-        # Calculate relevance scores for all filtered locations
-        relevance_scores = self._calculate_relevance_scores(
-            filter_result.filtered_locations, 
-            query_embedding,
-            filter_result.location_scores
-        )
+        # Try FAISS accelerated search first (graceful fallback to cosine loop)
+        relevance_scores = {}
+        use_faiss = False
+        try:
+            # Ensure embeddings and FAISS index are ready
+            self.embedding_service.ensure_index_ready()
+            use_faiss = self.embedding_service.index is not None
+        except FileNotFoundError:
+            use_faiss = False
+
+        if use_faiss:
+            # Use FAISS to get top similar locations by query, then intersect with filtered set
+            query_text = self._build_query_text(preferences, user_query)
+            faiss_results = self.embedding_service.similarity_search(query_text, k=200)
+            faiss_ids = {res['location'].id: res['score'] for res in faiss_results}
+
+            # Keep only those present in rule-filtered locations
+            filtered_ids = {loc.id for loc in filter_result.filtered_locations}
+            for loc_id, score in faiss_ids.items():
+                if loc_id in filtered_ids:
+                    relevance_scores[loc_id] = float(score)
+
+            # If intersection is too small, fall back to cosine for the filtered set
+            if len(relevance_scores) < 5:
+                relevance_scores = self._calculate_relevance_scores(
+                    filter_result.filtered_locations,
+                    query_embedding,
+                    filter_result.location_scores
+                )
+        else:
+            # Calculate relevance scores for all filtered locations (cosine similarity)
+            relevance_scores = self._calculate_relevance_scores(
+                filter_result.filtered_locations, 
+                query_embedding,
+                filter_result.location_scores
+            )
         
         # Sort by combined relevance and proximity scores
         sorted_locations = self._rank_locations(

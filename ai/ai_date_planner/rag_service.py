@@ -246,7 +246,7 @@ class RAGService:
     
     def _rank_locations(self, locations: List[Location], relevance_scores: Dict[str, float], proximity_scores: Dict[str, float]) -> List[Location]:
         """Rank locations by combined relevance and proximity scores"""
-        # Combine relevance (70%) and proximity (30%) scores
+        # Combine relevance (50%) and proximity (50%) scores
         combined_scores = {}
         
         for location in locations:
@@ -254,7 +254,7 @@ class RAGService:
             proximity = proximity_scores.get(location.id, 0.0)
             
             # Weighted combination
-            combined_score = 0.7 * relevance + 0.3 * proximity
+            combined_score = 0.5 * relevance + 0.5 * proximity
             combined_scores[location.id] = combined_score
         
         # Sort by combined score (descending)

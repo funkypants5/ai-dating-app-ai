@@ -157,7 +157,8 @@ class AIDatePlanner:
         summary = self._generate_summary(itinerary, preferences)
         
         # Generate alternative suggestions
-        alternatives = self._generate_alternatives(location_groups, preferences)
+        used_locations = [item['location_obj'] for item in itinerary if 'location_obj' in item]
+        alternatives = self._generate_alternatives(location_groups, preferences, used_locations)
         
         return DatePlan(
             itinerary=itinerary,
@@ -348,7 +349,7 @@ class AIDatePlanner:
             'address': food_location.address or 'Address not available',
             'type': 'food',
             'duration': duration,
-            'description': f"Enjoy {meal_type.lower()} at {food_location.description[:100]}...",
+            'description': f"{food_location.description[:100]}...",
             'location_obj': food_location
         }
     
@@ -447,7 +448,7 @@ class AIDatePlanner:
             'address': location.address or 'Address not available',
             'type': location.location_type,
             'duration': activity_duration,
-            'description': f"Enjoy {activity_type.lower()} at {location.description[:100]}...",
+            'description': f"{location.description[:100]}...",
             'location_obj': location
         }
     
@@ -499,7 +500,7 @@ class AIDatePlanner:
                     'address': lunch_location.address or 'Address not available',
                     'type': 'food',
                     'duration': 1.5,
-                    'description': f"Enjoy lunch at {lunch_location.description[:100]}...",
+                    'description': f"{lunch_location.description[:100]}...",
                     'location_obj': lunch_location
                 })
                 current_time = end_time
@@ -552,7 +553,7 @@ class AIDatePlanner:
                     'address': dinner_location.address or 'Address not available',
                     'type': 'food',
                     'duration': 2.0,
-                    'description': f"Enjoy dinner at {dinner_location.description[:100]}...",
+                    'description': f"{dinner_location.description[:100]}...",
                     'location_obj': dinner_location
                 })
         
@@ -627,7 +628,7 @@ class AIDatePlanner:
                     'address': location.address or 'Address not available',
                     'type': location.location_type,
                     'duration': activity_duration,
-                    'description': f"Enjoy {activity_type.lower()} at {location.description[:100]}...",
+                    'description': f"{location.description[:100]}...",
                     'location_obj': location
                 })
                 
@@ -702,7 +703,7 @@ class AIDatePlanner:
             'address': location.address or 'Address not available',
             'type': location.location_type,
             'duration': duration,
-            'description': f"Enjoy {activity_type.lower()} at {location.description[:100]}...",
+            'description': f"{location.description[:100]}...",
             'location_obj': location
         }
     
@@ -816,7 +817,7 @@ class AIDatePlanner:
             'address': location.address or 'Address not available',
             'type': location.location_type,
             'duration': duration,
-            'description': f"Enjoy {activity_type.lower()} at {location.description[:100]}...",
+            'description': f"{location.description[:100]}...",
             'location_obj': location
         }
     
@@ -863,13 +864,20 @@ class AIDatePlanner:
         
         return summary
     
-    def _generate_alternatives(self, location_groups: Dict[str, List[Location]], preferences: UserPreferences) -> List[str]:
-        """Generate alternative suggestions"""
+    def _generate_alternatives(self, location_groups: Dict[str, List[Location]], preferences: UserPreferences, used_locations: List[Location]) -> List[str]:
+        """Generate alternative suggestions that don't repeat itinerary locations"""
         alternatives = []
+        used_location_ids = {loc.id for loc in used_locations}
         
         for location_type, locations in location_groups.items():
-            if len(locations) > 1:
-                alternatives.append(f"Alternative {location_type}: {locations[1].name}")
+            # Find locations of this type that weren't used in the itinerary
+            unused_locations = [loc for loc in locations if loc.id not in used_location_ids]
+            
+            if unused_locations:
+                # Take the first unused location of this type
+                alt_location = unused_locations[0]
+                address = alt_location.address or "Address not available"
+                alternatives.append(f"Alternative {location_type}: {alt_location.name} - {address}")
         
         return alternatives[:3]  # Limit to 3 alternatives
     

@@ -117,8 +117,8 @@ The system plans meals based on **actual time windows** with intelligent sequent
 - **14:00-17:00 (3 hours):** Lunch + Coffee Break (spans lunch and coffee break windows)
 - **15:00-19:00 (4 hours):** Activities + Dinner (spans 17:00-20:00)
 - **18:00-21:00 (3 hours):** Dinner + Activities (spans 17:00-20:00)
-- **10:00-18:00 (8 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-20:00)
-- **9:00-19:00 (10 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities (no dinner - doesn't span 17:00-20:00)
+- **10:00-18:00 (8 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities + Dinner (spans 17:00-20:00, dinner planned at 17:00+)
+- **9:00-19:00 (10 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities + Dinner (spans 17:00-20:00, dinner planned at 17:00+)
 - **21:00-01:00 (4 hours):** Late Dinner + Activities (Late Dinner for night dates)
 - **14:00-21:00 (7 hours):** Lunch + Coffee Break + Sports + Dinner (perfect sports date with all meals)
 
@@ -237,7 +237,7 @@ The system now uses **flexible sequencing** based on time windows:
 
 - Uses **FAISS index** for fast semantic similarity search (k=200)
 - **Graceful fallback** to cosine similarity if FAISS unavailable
-- Combines **70% semantic relevance** + **30% proximity score**
+- Combines **50% semantic relevance** + **50% proximity score**
 - Returns top 50 most relevant locations
 - **Intersection logic**: FAISS results filtered by rule-based results
 
@@ -507,12 +507,12 @@ The AI Date Planner has been thoroughly tested with **15 different scenarios** c
 
 9. **Full Day (10:00-18:00)** - 8 hours
 
-   - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities
-   - **Meals**: 3 (spans breakfast and lunch, but not dinner)
+   - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner
+   - **Meals**: 4 (spans breakfast, lunch, coffee break, and dinner)
 
 10. **Extended Day (9:00-19:00)** - 10 hours
-    - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities
-    - **Meals**: 3 (spans breakfast and lunch, but not dinner)
+    - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner
+    - **Meals**: 4 (spans breakfast, lunch, coffee break, and dinner)
 
 ### **Budget Test Scenarios:**
 
@@ -839,7 +839,7 @@ _Tests: Late Dinner + Activities_
 
 ### **Sample 5: Full Day Cultural Date (8 hours)**
 
-_Tests: Coffee/Breakfast + Lunch + Coffee Break + Activities_
+_Tests: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner_
 
 ```json
 {

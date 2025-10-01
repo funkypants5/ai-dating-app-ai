@@ -1,194 +1,57 @@
-# 🤖 AI Date Planner - Rules & Considerations
+# 🤖 AI Date Planner - Complete System Documentation
 
 ## 📋 Overview
 
 The AI Date Planner uses a **hybrid approach** combining:
 
-- **Rule-based filtering** (deterministic)
-- **RAG (Retrieval-Augmented Generation)** (AI-powered semantic search)
-- **LLM integration** (GPT-3.5 Turbo for intelligent query parsing)
+- **Rule-based filtering** (deterministic exclusions and budget)
+- **RAG (Retrieval-Augmented Generation)** (AI-powered semantic search with **70% semantic + 30% proximity**)
+- **Fixed exclusion checkboxes** (max 2 exclusions)
+- **Date type prioritization** (tailored food and activities for each date type)
+- **Diversity sampling** (70 food + 30 non-food locations)
 
 ## ✅ Current Status
 
 **🎉 FULLY FUNCTIONAL** - The AI Date Planner is production-ready with:
 
-- ✅ **100% test pass rate** (15/15 scenarios passing)
+- ✅ **100% test pass rate** (comprehensive scenarios passing)
 - ✅ **Sequential planning** with realistic travel times
 - ✅ **Flexible meal durations** that adapt to available time
 - ✅ **Smart interest filtering** with food exceptions
 - ✅ **Complete address system** (Google Maps ready)
-- ✅ **LLM query parsing** for intelligent activity prioritization
-- ✅ **Comprehensive test coverage** for all use cases
+- ✅ **Fixed exclusion system** with max 2 exclusions
+- ✅ **75% time usage validation** to ensure full dates
+- ✅ **Enhanced breakfast filtering** for appropriate venues
+- ✅ **Romantic date type enhancement** for better venue matching
 
-## 🤖 LLM Integration
+## 🎛️ User Input System
 
-### **Intelligent Query Parsing**
+### **Fixed Exclusion Checkboxes (Max 2)**
 
-The system uses **GPT-3.5 Turbo** to intelligently parse user queries and extract:
+Users can exclude up to **2 activity types** from their date:
 
-- **Inclusions**: What activities the user wants (e.g., "I want a walk and sports")
-- **Exclusions**: What activities to avoid (e.g., "no cultural activities")
-- **Activity counts**: How many of each type (e.g., "2 sports activities")
-- **Confidence scores**: How certain the LLM is about its parsing
+- **🏃 Sports** - Excludes: Gyms, fitness centers, swimming pools, tennis courts, sports stadiums
+- **🎨 Cultural** - Excludes: Museums, art galleries, cultural sites, heritage locations, temples, churches, mosques
+- **🌳 Nature** - Excludes: Parks, gardens, nature reserves, botanical gardens, scenic viewpoints, zoos
 
-### **Smart Activity Prioritization**
+**Important Rules:**
 
-The LLM parsing results are used to:
-
-1. **Prioritize requested activities** - If user wants sports, sports activities are planned first
-2. **Respect exclusions** - If user says "no cultural", cultural activities are avoided
-3. **Handle contradictions** - If user says "no cultural but with museums", the LLM intelligently resolves this
-4. **Fallback gracefully** - If LLM parsing fails, simple keyword matching is used
-
-### **Example LLM Parsing**
-
-```
-User Query: "I want a walk and sports"
-LLM Output: {
-  "inclusions": [
-    {"activity_type": "nature", "count": 1, "priority": "high"},
-    {"activity_type": "sports", "count": 1, "priority": "high"}
-  ],
-  "exclusions": [],
-  "confidence_score": 0.85
-}
-```
-
-## 🎯 Core Planning Rules
-
-### 1. **Duration-Based Activity Planning**
-
-The system automatically suggests different numbers of activities based on date duration:
-
-| Duration     | Activities     | Rules                                                                    |
-| ------------ | -------------- | ------------------------------------------------------------------------ |
-| **3+ hours** | 2 activities   | Basic food + 1 attraction/activity                                       |
-| **4+ hours** | 3 activities   | Basic food + attraction + coffee break                                   |
-| **6+ hours** | 3-4 activities | Basic food + attraction + coffee break + additional cultural/nature spot |
-
-### 2. **Time-Based Meal Planning**
-
-The system plans meals based on **actual time windows** with intelligent sequential planning:
-
-#### 🍽️ **Meal Time Windows**
-
-| Meal Type            | Time Window   | Duration  | Conditions                                                        |
-| -------------------- | ------------- | --------- | ----------------------------------------------------------------- |
-| **Coffee/Breakfast** | 6:00 - 11:00  | 1.0 hour  | If date starts between 6-11 AM                                    |
-| **Lunch**            | 12:00 - 14:00 | 1.5 hours | If date spans lunch time (starts before 12:00, ends after 12:00)  |
-| **Coffee Break**     | 14:00 - 16:00 | 1.0 hour  | If date spans 14:00-16:00 AND max 1 coffee break per date         |
-| **Dinner**           | 17:00 - 20:00 | 2.0 hours | If date spans dinner time (starts before 20:00, ends after 17:00) |
-| **Late Dinner**      | 21:00 - 02:00 | 2.0 hours | If date starts after 21:00 OR before 2 AM                         |
-
-#### 🎯 **Smart Meal Logic**
-
-- **Sequential planning** - Activities planned one after another with travel time
-- **Flexible durations** - Meal durations adapt to available time (minimum 30 minutes)
-- **Meal prioritization** - Meals are prioritized over activities when time windows align
-- **Travel time integration** - Realistic travel time calculated between all locations
-- **Coffee break limits** - Maximum 1 coffee break per date to prevent duplicates
-
-#### 🔧 **Meal Planning Technical Details**
-
-**Meal Timing Logic:**
-
-- **Coffee/Breakfast**: `6 <= current_hour <= 11 and meal_count == 0`
-- **Lunch**: `12 <= current_hour <= 14 and meal_count <= 1`
-- **Coffee Break**: `14 <= current_hour <= 16 and meal_count <= 2 and coffee_breaks == 0`
-- **Dinner**: `17 <= current_hour <= 20 and meal_count <= 2`
-- **Late Dinner**: `current_hour >= 21 and meal_count <= 3`
-
-**Duration Adaptation:**
-
-- **Fixed durations**: Coffee/Breakfast (1.0h), Coffee Break (1.0h), Dinner (2.0h), Late Dinner (2.0h)
-- **Flexible duration**: Lunch adapts to available time (minimum 0.5h)
-- **Adaptation formula**: `duration = max(0.5, time_remaining)` for flexible meals
-
-**Sequential Planning:**
-
-- Activities planned one after another with travel time
-- Travel time pushes back start times of subsequent activities
-- Final activity duration adjusted to match exact end time
-
-#### 📅 **Example Scenarios**
-
-- **7:00-10:00 (3 hours):** Coffee/Breakfast + Activities (no lunch - doesn't span 12:00-14:00)
-- **9:00-13:00 (4 hours):** Coffee/Breakfast + Activities + Lunch (spans 12:00-14:00, lunch duration adapts to 0.6 hours)
-- **14:00-17:00 (3 hours):** Lunch + Coffee Break (spans lunch and coffee break windows)
-- **15:00-19:00 (4 hours):** Activities + Dinner (spans 17:00-20:00)
-- **18:00-21:00 (3 hours):** Dinner + Activities (spans 17:00-20:00)
-- **10:00-18:00 (8 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities + Dinner (spans 17:00-20:00, dinner planned at 17:00+)
-- **9:00-19:00 (10 hours):** Coffee/Breakfast + Activities + Lunch + Coffee Break + Activities + Dinner (spans 17:00-20:00, dinner planned at 17:00+)
-- **21:00-01:00 (4 hours):** Late Dinner + Activities (Late Dinner for night dates)
-- **14:00-21:00 (7 hours):** Lunch + Coffee Break + Sports + Dinner (perfect sports date with all meals)
-
-## 🔧 Hardcoded Elements
-
-### **Activity Types (Partially Hardcoded)**
-
-#### ✅ **Dynamic Activity Types:**
-
-- **Sports Activity** - Based on location analysis (swimming, tennis, fitness, etc.)
-- **Swimming** - For swimming pools/aquatic centers
-- **Tennis** - For tennis courts
-- **Fitness** - For gyms/fitness centers
-- **Sports** - For stadiums/fields
-
-#### ❌ **Hardcoded Activity Types:**
-
-- `"Coffee/Breakfast"` - For 6:00-11:00 time window
-- `"Lunch"` - For 11:00-15:00 time window
-- `"Dinner"` - For 17:00-22:00 time window
-- `"Late Dinner"` - For 21:00-02:00 time window
-- `"Coffee Break"` - For 14:00-17:00 time window
-- `"Walk"` - For park/nature attractions
-- `"Cultural Visit"` - For museums/galleries
-- `"Sports Activity"` - For sports facilities (dynamically categorized)
-
-### **Duration Times (Flexible)**
-
-| Activity Type    | Duration      | Time Window | Notes                                              |
-| ---------------- | ------------- | ----------- | -------------------------------------------------- |
-| Coffee/Breakfast | 1.0 hours     | 6:00-11:00  | Fixed                                              |
-| Lunch            | 1.5 hours     | 12:00-14:00 | **Flexible** - adapts to available time (min 0.5h) |
-| Dinner           | 2.0 hours     | 17:00-20:00 | Fixed                                              |
-| Late Dinner      | 2.0 hours     | 21:00-02:00 | Fixed                                              |
-| Coffee Break     | 1.0 hours     | 14:00-16:00 | Fixed                                              |
-| Walk             | 0.5-2.0 hours | Any time    | Variable based on available time                   |
-| Cultural Visit   | 0.5-3.0 hours | Any time    | Variable based on available time                   |
-| Sports Activity  | 1.0-4.0 hours | Any time    | Variable based on available time                   |
-
-### **Activity Sequencing (Dynamic)**
-
-The system now uses **flexible sequencing** based on time windows:
-
-1. **Food always comes first** (breakfast/lunch/dinner)
-2. **Attractions come second** (walks, museums, parks)
-3. **Activities come last** (sports, entertainment)
-
-### **Budget Tiers (Hardcoded)**
-
-| Budget Tier | Max Price | Keywords                                                |
-| ----------- | --------- | ------------------------------------------------------- |
-| `$`         | $20       | "cheap", "budget", "affordable", "hawker", "food court" |
-| `$$`        | $50       | "moderate", "mid-range", "casual", "family"             |
-| `$$$`       | $100      | "upscale", "fine dining", "premium", "luxury"           |
-| `$$$$`      | $200      | "high-end", "exclusive", "gourmet", "michelin"          |
-
-## 🎛️ User Input Considerations
+- Maximum 2 exclusions allowed (prevents over-filtering)
+- Food venues are **NEVER excluded** (meals always needed)
+- Shopping areas are **always included** (not in exclusion list)
 
 ### **Required Inputs:**
 
 - `start_time` - When the date begins (HH:MM format)
-- `start_latitude` & `start_longitude` - Starting location coordinates
-- `budget_tier` - $, $$, $$$, or $$$$
+- `start_latitude` & `start_longitude` - Starting location coordinates (validated)
+- `budget_tier` - $, $$, or $$$ (3 tiers)
+- `date_type` - casual, romantic, adventurous, cultural
+- `interests` - Array of interests (culture, sports, nature, food, etc.)
 
 ### **Optional Inputs:**
 
-- `end_time` - When the date ends (defaults to 4 hours after start)
-- `interests` - Array of interests (defaults to ['food', 'culture', 'nature'])
-- `date_type` - casual, romantic, adventurous, cultural (defaults to 'casual')
-- `preferred_location_types` - Array of types (defaults to all types)
+- `end_time` - When the date ends (defaults to 8 hours after start)
+- `exclusions` - Array of exclusions (max 2: "sports", "cultural", "nature")
 
 ### **Auto-Detected:**
 
@@ -198,191 +61,277 @@ The system now uses **flexible sequencing** based on time windows:
   - 17:00-21:00 → "evening"
   - 21:00-02:00 → "night"
 
+## 🎯 Core Planning Rules
+
+### 1. **75% Time Usage Validation**
+
+The system ensures at least **75% of requested time** is filled with activities:
+
+- **Validation**: `(total_activity_time / requested_duration) * 100 >= 75%`
+- **Applies to**: Dates longer than 2 hours
+- **Error if failed**: "Unable to plan sufficient activities for X hours. Try selecting more interests, reducing exclusions, or choosing a shorter duration."
+- **Dynamic max activities**: Scales with duration (`max(5, int(duration / 1.0) + 2)`)
+
+**Examples:**
+
+- 2-hour date: No validation (quick dates exempt)
+- 4-hour date: Need at least 3 hours of activities
+- 8-hour date: Need at least 6 hours of activities
+- 8-hour with only breakfast: ❌ Fails validation (12.5% coverage)
+
+### 2. **Time-Based Meal Planning**
+
+The system plans meals based on **actual time windows** with intelligent sequential planning:
+
+#### 🍽️ **Meal Time Windows**
+
+| Meal Type            | Time Window   | Duration  | Cost          | Conditions                                                        |
+| -------------------- | ------------- | --------- | ------------- | ----------------------------------------------------------------- |
+| **Coffee/Breakfast** | 6:00 - 11:00  | 1.0 hour  | **$10**       | If date starts between 6-11 AM                                    |
+| **Coffee Break**     | 14:00 - 16:00 | 1.0 hour  | **$10**       | If date spans 14:00-16:00 AND max 1 coffee break per date         |
+| **Lunch**            | 12:00 - 14:00 | 1.5 hours | Budget × 80%  | If date spans lunch time (starts before 12:00, ends after 12:00)  |
+| **Dinner**           | 17:00 - 20:00 | 2.0 hours | Budget × 100% | If date spans dinner time (starts before 20:00, ends after 17:00) |
+| **Late Dinner**      | 21:00 - 02:00 | 2.0 hours | Budget × 100% | If date starts after 21:00 OR before 2 AM                         |
+
+#### 🎯 **Enhanced Breakfast & Coffee Break Filtering**
+
+**Strict Rules to Prevent Non-Breakfast Venues:**
+
+```python
+# POSITIVE: What we WANT for breakfast/coffee
+breakfast_keywords = [
+    'cafe', 'coffee', 'kopi', 'breakfast', 'brunch', 'bakery',
+    'toast', 'western', 'bistro', 'patisserie', 'sandwich', 'bagel',
+    'espresso', 'latte', 'cappuccino', 'americano', 'tea house'
+]
+
+# NEGATIVE: What we DON'T WANT for breakfast/coffee
+non_breakfast_keywords = [
+    'korean', 'chinese', 'indian', 'italian', 'french', 'japanese',
+    'thai', 'vietnamese', 'malay', 'seafood', 'steakhouse', 'steak',
+    'fine dining', 'asian cuisine', 'peranakan', 'vegetarian restaurant',
+    'noodles', 'ramen', 'sushi', 'dim sum', 'hotpot', 'bbq', 'grill'
+]
+```
+
+**Logic (Checks both name AND description):**
+
+1. If has non-breakfast keywords AND no breakfast vibe:
+   - If hawker/food court/kopitiam → ✅ Allowed (have breakfast options)
+   - Else → ❌ Rejected
+2. If has breakfast vibe → ✅ Allowed
+3. If hawker/food court/kopitiam → ✅ Allowed
+4. Otherwise → ❌ Rejected (conservative approach)
+
+**Critical Safeguard:**
+
+- If NO appropriate breakfast venues found → Use hawker centers as fallback
+- If NO hawker centers → Return `None` (don't plan inappropriate meals)
+- **Never falls back to full restaurants for breakfast/coffee**
+
+**Examples:**
+
+- ✅ Ya Kun Kaya Toast (has 'toast')
+- ✅ Starbucks Coffee (has 'coffee')
+- ✅ TWG Tea Salon (has 'tea house')
+- ✅ Tiong Bahru Market (hawker center)
+- ❌ Jumbo Seafood (has 'seafood', no breakfast vibe)
+- ❌ Seoul Yummy Korean (has 'korean', no breakfast vibe)
+- ❌ Indian Vegetarian Restaurant (has 'vegetarian restaurant', 'indian')
+
+### **Budget Tiers (3 Tiers)**
+
+| Budget Tier | Breakfast/Coffee | Lunch  | Dinner | Description                                 |
+| ----------- | ---------------- | ------ | ------ | ------------------------------------------- |
+| **$**       | $10              | $10-15 | $10-15 | Local favorites (hawker centers, kopitiams) |
+| **$$**      | $10              | $16-32 | $20-40 | Casual dining (cafes, casual restaurants)   |
+| **$$$**     | $10              | $40-56 | $50-70 | Upscale dining (fine restaurants, premium)  |
+
+**Cost Calculation:**
+
+- Breakfast & Coffee Break: **Always $10 per person**
+- Lunch: Budget tier × 0.8 (80% of full cost)
+- Dinner: Budget tier × 1.0 (full cost)
+- **Default budget**: $$ (moderate pricing)
+
+**CRITICAL: Budget ONLY Applies to Food**
+
+- **Food locations**: Filtered by budget tier keywords
+- **Attractions**: No budget filter (most are free or low-cost)
+- **Activities**: No budget filter (sports facilities usually municipal/free)
+- **Heritage**: No budget filter (museums have nominal fees)
+- **Cafes**: ALWAYS kept regardless of budget tier (needed for breakfast/coffee)
+
 ## 🔍 Filtering Rules
 
 ### **Rule-Based Filtering (Step 1)**
 
-1. **Location Type Filter** - Filters by preferred types (food, attraction, activity, heritage)
-2. **Interest Filter** - **Smart filtering** - If no interests specified, includes all locations. If interests specified, only includes matching locations (except food locations which are always included for meals)
+1. **Exclusion Filter (First Priority)** - Removes excluded activity types:
 
-   **Interest Mapping:**
+   - Checks location name/description against exclusion keywords
+   - **NEVER excludes food locations** (meals required)
+   - Processed before all other filters
 
-   - **food**: ["restaurant", "cafe", "dining", "cuisine", "food", "eat", "drink"]
-   - **culture**: ["museum", "gallery", "art", "cultural", "heritage", "historical", "traditional"]
-   - **nature**: ["park", "garden", "nature", "outdoor", "scenic", "botanical", "zoo"]
-   - **sports**: ["sports", "gym", "fitness", "swimming", "tennis", "football", "basketball"]
-   - **art**: ["art", "gallery", "museum", "creative", "exhibition", "sculpture", "painting"]
-   - **shopping**: ["shopping", "mall", "market", "retail", "boutique", "store"]
+2. **Interest Filter** - Matches user interests:
 
-3. **Budget Filter** - Filters by budget tier keywords (see Budget Tiers table above)
-4. **Time Filter** - **Very lenient** - only excludes locations that explicitly conflict
+   - If no interests specified, includes all locations
+   - If interests specified, only includes matching locations
+   - **Exception**: Food locations always included for meals
+   - **Enhancement**: General attractions allowed if they don't match exclusions
 
-   **Time Preferences:**
+3. **Budget Filter** - **ONLY applies to food locations:**
 
-   - **morning**: ["breakfast", "coffee", "brunch", "early", "morning"]
-   - **afternoon**: ["lunch", "afternoon", "daytime", "casual"]
-   - **evening**: ["dinner", "evening", "romantic", "sunset", "night"]
-   - **night**: ["late night", "nightlife", "bar", "club", "night"]
+   - **Food locations**: Filtered by budget tier keywords (`upscale`, `premium`, `luxury`, etc.)
+   - **Cafes/Coffee shops**: ALWAYS kept regardless of budget (needed for breakfast/coffee)
+   - **Attractions/Activities/Heritage**: NO budget filter applied (most are free or low-cost)
+   - **Keywords by tier:**
+     - `$`: `cheap`, `budget`, `affordable`, `hawker`, `food court`
+     - `$$`: `moderate`, `mid-range`, `casual`, `family`
+     - `$$$`: `upscale`, `fine dining`, `premium`, `luxury`
+   - **Cafe keywords (always kept)**: `cafe`, `coffee`, `kopi`, `bistro`, `bakery`, `patisserie`, `espresso`, `starbucks`, `toast`
 
-5. **Date Type Filter** - **Very lenient** - only excludes locations that explicitly conflict
+4. **Time Filter** - Very lenient - only excludes locations that explicitly conflict
 
-   **Date Type Preferences:**
-
-   - **casual**: ["casual", "relaxed", "friendly", "comfortable"]
-   - **romantic**: ["romantic", "intimate", "candlelight", "cozy", "private"]
-   - **adventurous**: ["adventure", "outdoor", "active", "exciting", "thrilling"]
-   - **cultural**: ["cultural", "heritage", "museum", "art", "historical", "traditional"]
+5. **Date Type Filter** - Enhanced for romantic dates:
+   - **Romantic**: Excludes child-focused venues
+   - **Cultural**: Excludes child-focused venues
+   - All types: Age-appropriate filtering
 
 ### **RAG-Based Relevance (Step 2)**
 
 - Uses **FAISS index** for fast semantic similarity search (k=200)
 - **Graceful fallback** to cosine similarity if FAISS unavailable
-- Combines **50% semantic relevance** + **50% proximity score**
-- Returns top 50 most relevant locations
-- **Intersection logic**: FAISS results filtered by rule-based results
+- Combines **70% semantic relevance** + **30% proximity score** (prioritizes quality over convenience)
+- Returns top **100** most relevant locations via diversity sampling
+- **Diversity sampling**: Ensures 70 food + 10 attractions + 10 activities + 10 heritage minimum
+- **Why?** Prevents RAG from returning 99 food + 1 attraction (was happening before)
 
-### **FAISS Implementation Details**
+### **Date Type Differentiation (3-Layer System)**
 
-- **Index Type**: `IndexFlatIP` (Inner Product for cosine similarity)
-- **Embedding Model**: Sentence-BERT "all-MiniLM-L6-v2" (384 dimensions)
-- **Normalization**: L2 normalization applied to embeddings
-- **Search Strategy**: Top-k search (k=200) with intersection filtering
-- **Fallback**: Cosine similarity if FAISS index unavailable
-- **Performance**: 5-10x faster than manual cosine similarity
+The system uses **THREE layers** to differentiate date types:
 
-### **Proximity Scoring**
+**Layer 1: RAG Semantic Search** (affects ALL locations)
 
-- Calculates distance from `start_latitude`/`start_longitude`
-- Uses **Haversine formula** for accurate distance calculation
-- **No distance limit** - considers all locations regardless of distance
-- Scores range from 0-1 (higher = closer to start location)
-- **Normalized scoring**: `1.0 - (distance / max_distance)`
+- Each date type has rich keyword descriptions added to query
+- RAG finds semantically similar venues
 
-## 📍 Address System
+**Layer 2: Food Re-Ranking via RAG Semantic Similarity** (affects food locations only)
 
-### **Address Formatting:**
+- After RAG, food venues are re-scored using **semantic similarity** to date type vibe
+- Generates date-type-specific query embedding and compares to venue embeddings
+- Captures "vibe" even without exact keywords (e.g., "sunset views" matches romantic without the word "romantic")
 
-#### **Sports Facilities:**
+**Layer 3: Activity Selection** (affects non-food locations)
 
-```
-"21, Evans Road, Singapore 259366"
-```
+- Adventurous → Prioritizes sports (max 1) + nature walks
+- Cultural → Prioritizes heritage sites + museums
+- Romantic/Casual → Standard RAG-driven selection
 
-#### **Restaurants:**
+### **Date Type Characteristics Summary:**
 
-```
-"Block 123, Main Street, #01-01, Singapore"
-```
+| Date Type       | Food Re-Ranking Query (RAG Semantic)                                                                  | Activity Priority                                   | Expected Venues                                                        | Max Sports |
+| --------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------- | ---------- |
+| **Casual**      | "casual relaxed friendly comfortable laid-back bistro cafe food court family-friendly"                | Standard flow                                       | Bistros, cafes, casual restaurants, shopping                           | 1          |
+| **Romantic**    | "romantic intimate cozy candlelit elegant fine dining rooftop waterfront scenic wine couple-friendly" | Standard flow                                       | Fine dining, rooftop bars, waterfront, scenic walks                    | 1          |
+| **Adventurous** | "outdoor adventure unique fusion experimental street food hawker food market outdoor seating"         | **1. Sports (max 1)** <br> **2. Nature walks**      | Hawker centers, fusion food, tennis/swimming + nature walks            | 1          |
+| **Cultural**    | "traditional heritage cultural authentic peranakan historical traditional ambiance art cafe"          | **1. Heritage sites** <br> **2. Museums/galleries** | Peranakan food, traditional cuisine, museums, temples, heritage trails | 1          |
 
-#### **Tourist Attractions:**
+**How Re-Ranking Works:**
 
-```
-"MacRitchie Reservoir Park"
-```
-
-### **Address Sources:**
-
-- **GeoJSON files** - Extracted from HTML description tables
-- **KML files** - Extracted from ExtendedData fields
-- **Restaurant data** - Built from BLK_HOUSE + STR_NAME + UNIT_NO
+- Generate embedding for date type query (e.g., "romantic intimate cozy candlelit...")
+- Compare to each food venue's embedding using cosine similarity
+- Rank by similarity score (venues with romantic "vibe" rank higher, even without keyword "romantic")
+- Example: "Sunset Bar with Panoramic Views" → High similarity to romantic query ✅
 
 ## ⏰ Travel Time & Timing System
 
 ### **Travel Time Calculation:**
 
-The system now calculates **realistic travel time** between locations:
+The system calculates **realistic travel time** between locations:
 
-- **Distance Calculation**: Uses Haversine formula for accurate distance
-- **Speed Assumption**: 30 km/h average in Singapore (including traffic/public transport)
+- **Distance Calculation**: Uses Haversine formula
+- **Speed Assumption**: 30 km/h average in Singapore (traffic + public transport)
 - **Travel Time Range**: 6 minutes to 1 hour (capped for realism)
 - **Default Fallback**: 15 minutes if coordinates missing
 - **Formula**: `travel_time = max(0.1, min(distance_km / 30.0, 1.0))` hours
-- **Earth Radius**: 6371 km for Haversine calculation
 
-### **Layman Travel Time Calculation:**
+**Examples:**
 
-**Simple Formula:**
-
-```
-Travel Time = Distance ÷ 30 km/h
-```
-
-**Real Examples:**
-
-- **0.5 km away** → 0.5 ÷ 30 = 0.017 hours → **6 minutes** (minimum time)
-- **3 km away** → 3 ÷ 30 = 0.1 hours → **6 minutes**
-- **15 km away** → 15 ÷ 30 = 0.5 hours → **30 minutes**
-- **45 km away** → 45 ÷ 30 = 1.5 hours → **1 hour** (maximum time)
-
-**Why 30 km/h?**
-
-- Singapore average speed including traffic, public transport, and walking
-- Accounts for: MRT delays, bus stops, traffic lights, walking between stations
-- Realistic for mixed transport modes (not just driving)
-
-**Time Limits:**
-
-- **Minimum**: 6 minutes (even if very close)
-- **Maximum**: 1 hour (even if very far)
-- **Reason**: Prevents unrealistic back-to-back activities or extremely long travel
+- 0.5 km away → **6 minutes** (minimum)
+- 15 km away → **30 minutes**
+- 45 km away → **1 hour** (maximum)
 
 ### **Timing Format:**
 
-#### **Before (Unclear):**
-
 ```
-• 10:00: Coffee/Breakfast at Restaurant
-• 11:00: Morning Walk at Park
-```
-
-#### **After (Clear Start/End Times):**
-
-```
-• 10:00-11:00: Coffee/Breakfast at Restaurant
-• 11:06-13:06: Morning Walk at Park (6 min travel time included)
+• 10:00-11:00: Coffee/Breakfast at Ya Kun Kaya Toast
+• 11:06-13:06: Morning Walk at MacRitchie Reserve (6 min travel)
+• 13:12-14:42: Lunch at Hawker Center (6 min travel)
 ```
 
-### **Travel Time Examples:**
+## 📍 Location Validation
 
-- **Same area**: 6-10 minutes travel time
-- **Different districts**: 15-30 minutes travel time
-- **Cross-island**: 30-60 minutes travel time
+### **Starting Location Requirement:**
 
-### **Real Examples from the System:**
+- **Frontend Validation**: Checks if coordinates are present before submission
+- **Backend Validation**: Throws error if coordinates are null/undefined
+- **User Feedback**: "Starting location is required. Please select a location in Singapore..."
+- **Geocoding**: OpenCage API with Singapore-specific filtering
 
-#### **Morning Coffee Date (3 hours):**
+### **Singapore-Specific Geocoding:**
 
+```typescript
+// Always append "Singapore" to queries
+searchQuery = query.includes("Singapore") ? query : `${query}, Singapore`;
+
+// Filter results
+params: {
+  countrycode: 'sg',
+  bounds: '103.6,1.15,104.0,1.47'  // Singapore boundaries
+}
+
+// Verify results
+if (result.components.country_code === 'sg')
 ```
-• 09:00-10:00: Coffee/Breakfast at HUA FONG KEE FOOD COURT PTE LTD
-• 10:06-12:06: Morning Walk at MacRitchie Singapore & Singapore Nature Reserve
-  (6 minutes travel time from food court to nature reserve)
+
+## 🔧 Hardcoded Elements
+
+### **Activity Types:**
+
+#### ✅ **Dynamic Activity Types:**
+
+- **Shopping** - Based on keywords: shopping, mall, orchard road, boutique, retail
+- **Walk** - Based on keywords: walk, park, nature, reserve, garden, trail
+- **Cultural Visit** - Based on keywords: museum, gallery, art, heritage, temple, church
+- **Attraction Visit** - Default for general attractions
+
+**Enhanced Logic:**
+
+```python
+def _get_attraction_activity_type(location, exclude_nature, exclude_cultural):
+    # Check nature keywords
+    if has_nature_keywords:
+        return None if exclude_nature else 'Walk'
+
+    # Check cultural keywords
+    if has_cultural_keywords:
+        return None if exclude_cultural else 'Cultural Visit'
+
+    # Check shopping keywords
+    if has_shopping_keywords:
+        return 'Shopping'  # Always allowed
+
+    # Default: general attraction
+    return 'Attraction Visit'
 ```
 
-#### **Full Day Date (7 hours):**
+#### ❌ **Hardcoded Activity Types:**
 
-```
-• 10:00-11:00: Coffee/Breakfast at AH SIN FAMILY EATING HOUSE
-• 11:06-13:06: Morning Walk at MacRitchie Singapore & Singapore Nature Reserve
-  (6 minutes travel time from restaurant to nature reserve)
-• 13:12-17:12: Light Activity at Co Curricular Activities Branch
-  (6 minutes travel time from nature reserve to sports center)
-```
-
-### **Technical Implementation:**
-
-- **Haversine Formula**: Accurate distance calculation between coordinates
-- **Singapore-Specific**: 30 km/h average speed (realistic for traffic + public transport)
-- **Fallback Handling**: 15 minutes default if coordinates missing
-- **Time Capping**: Maximum 1 hour travel time (prevents unrealistic estimates)
-- **Automatic Calculation**: No manual input needed - system calculates everything
-
-### **Key Benefits:**
-
-1. **Realistic Timing**: No more impossible back-to-back activities
-2. **Clear Communication**: Users know exactly when each activity starts and ends
-3. **Google Maps Ready**: Travel times are realistic for Singapore
-4. **Automatic**: No manual input needed - system calculates everything
-5. **Flexible**: Works for any location combination
+- `"Coffee/Breakfast"` - For 6:00-11:00 time window ($10 fixed)
+- `"Coffee Break"` - For 14:00-16:00 time window ($10 fixed)
+- `"Lunch"` - For 12:00-14:00 time window (budget × 0.8)
+- `"Dinner"` - For 17:00-20:00 time window (budget × 1.0)
+- `"Late Dinner"` - For 21:00-02:00 time window (budget × 1.0)
 
 ## 🎯 What to Expect
 
@@ -391,12 +340,13 @@ Travel Time = Distance ÷ 30 km/h
 ```json
 {
   "start_time": "10:00",
-  "end_time": "17:00",
+  "end_time": "18:00",
   "start_latitude": 1.3521,
   "start_longitude": 103.8198,
   "interests": ["food", "culture", "nature"],
   "budget_tier": "$$",
-  "date_type": "romantic"
+  "date_type": "romantic",
+  "exclusions": ["sports"]
 }
 ```
 
@@ -409,369 +359,32 @@ Travel Time = Distance ÷ 30 km/h
       "start_time": "10:00",
       "end_time": "11:00",
       "activity": "Coffee/Breakfast",
-      "location": "AH SIN FAMILY EATING HOUSE",
+      "location": "Ya Kun Kaya Toast",
       "address": "Block 123, Main Street, Singapore",
       "type": "food",
       "duration": 1.0,
-      "description": "Start your day with..."
+      "description": "Start your day with traditional kaya toast..."
     },
     {
       "start_time": "11:06",
       "end_time": "13:06",
       "activity": "Morning Walk",
-      "location": "MacRitchie Singapore & Singapore Nature Reserve",
+      "location": "MacRitchie Reservoir",
       "address": "MacRitchie Reservoir Park",
       "type": "attraction",
       "duration": 2.0,
-      "description": "Enjoy a peaceful walk at..."
+      "description": "Enjoy a peaceful walk..."
     }
   ],
-  "estimated_cost": "$70-$100 per person",
-  "duration": 7.0,
-  "summary": "Romantic 7-hour date with food, nature, and activities"
+  "estimated_cost": "$46-78 per person",
+  "duration": 8.0,
+  "summary": "Romantic 8-hour date with food, nature, and activities"
 }
 ```
 
-## ⚠️ Limitations
-
-### **Current Limitations:**
-
-1. **Fixed activity sequencing** - Cannot customize order
-2. **Hardcoded durations** - Cannot adjust time per activity
-3. **Limited activity types** - Some types are hardcoded
-4. **No real-time data** - Uses static location database
-5. **Singapore only** - Location data is Singapore-specific
-6. **Basic travel time** - Uses average speed, not real-time traffic data
-
-### **Future Improvements:**
-
-1. **Dynamic activity types** - Analyze restaurant types for better categorization
-2. **Flexible sequencing** - Allow custom activity orders
-3. **Dynamic durations** - Base duration on location type and user preferences
-4. **Real-time integration** - Connect to live restaurant/event APIs
-5. **Multi-city support** - Expand beyond Singapore
-6. **Real-time traffic data** - Integrate with Google Maps API for accurate travel times
-7. **Transport mode selection** - Allow users to choose walking, driving, or public transport
-
-## 🧪 Comprehensive Test Scenarios
-
-The AI Date Planner has been thoroughly tested with **15 different scenarios** covering all major use cases with a **100% pass rate**:
-
-### **Time-Based Test Scenarios:**
-
-#### **Morning Dates:**
-
-1. **Early Morning (7:00-10:00)** - 3 hours
-
-   - **Expected**: Coffee/Breakfast + Activities
-   - **Meals**: 1 (Coffee/Breakfast only - doesn't span lunch time)
-
-2. **Morning to Afternoon (9:00-13:00)** - 4 hours
-   - **Expected**: Coffee/Breakfast + Lunch + Activities
-   - **Meals**: 2 (spans lunch time 12:00-14:00)
-
-#### **Afternoon Dates:**
-
-3. **Afternoon Only (14:00-17:00)** - 3 hours
-
-   - **Expected**: Activities only
-   - **Meals**: 0 (doesn't span any meal times)
-
-4. **Afternoon to Evening (15:00-19:00)** - 4 hours
-   - **Expected**: Activities + Dinner
-   - **Meals**: 1 (spans dinner time 17:00-19:30)
-
-#### **Evening Dates:**
-
-5. **Evening Only (18:00-21:00)** - 3 hours
-
-   - **Expected**: Dinner + Activities
-   - **Meals**: 1 (spans dinner time 17:00-19:30)
-
-6. **Evening to Night (19:00-23:00)** - 4 hours
-   - **Expected**: Dinner + Activities
-   - **Meals**: 1 (spans dinner time 17:00-19:30)
-
-#### **Night Dates:**
-
-7. **Night Only (21:00-00:00)** - 3 hours
-
-   - **Expected**: Late Dinner + Activities
-   - **Meals**: 1 (Late Dinner for night dates)
-
-8. **Night to Early Morning (22:00-02:00)** - 4 hours
-   - **Expected**: Late Dinner + Activities
-   - **Meals**: 1 (Late Dinner for night dates)
-
-#### **Full Day Dates:**
-
-9. **Full Day (10:00-18:00)** - 8 hours
-
-   - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner
-   - **Meals**: 4 (spans breakfast, lunch, coffee break, and dinner)
-
-10. **Extended Day (9:00-19:00)** - 10 hours
-    - **Expected**: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner
-    - **Meals**: 4 (spans breakfast, lunch, coffee break, and dinner)
-
-### **Budget Test Scenarios:**
-
-11. **Low Budget ($)** - Budget-friendly options
-
-    - **Price Range**: $20-$40 per person
-    - **Keywords**: "budget", "affordable", "cheap", "casual"
-
-12. **High Budget ($$$$)** - Luxury options
-    - **Price Range**: $100+ per person
-    - **Keywords**: "high-end", "exclusive", "gourmet", "michelin"
-
-### **Interest Test Scenarios:**
-
-13. **Sports Focused** - Activity and food interests
-
-    - **Focus**: Sports facilities, active pursuits
-    - **Activities**: Swimming, tennis, fitness, sports
-
-14. **Culture Focused** - Culture and food interests
-    - **Focus**: Museums, galleries, cultural sites
-    - **Activities**: Cultural visits, museum tours
-
-### **Edge Case Scenarios:**
-
-15. **Very Short Date (12:00-14:00)** - 2 hours
-    - **Expected**: Lunch + Activities
-    - **Meals**: 1 (spans lunch time 12:00-14:00)
-
-## ✅ Test Validation Rules
-
-The test suite validates the following aspects of each date plan:
-
-### **Meal Planning Validation:**
-
-- ✅ **Correct meal types** - Coffee/Breakfast, Lunch, Dinner, Late Dinner, Coffee Break
-- ✅ **Proper meal timing** - Meals planned only when date spans meal time windows
-- ✅ **Meal sequencing** - Food activities come before other activities
-- ✅ **Realistic durations** - 1-2 hours for meals, appropriate for activity type
-
-### **Activity Sequencing Validation:**
-
-- ✅ **Food first** - Meals always come before activities
-- ✅ **Attractions second** - Walks, museums, parks after meals
-- ✅ **Activities last** - Sports, entertainment after attractions
-- ✅ **Logical flow** - Activities make sense for the time of day
-
-### **Timing Validation:**
-
-- ✅ **Start/End times** - Clear timing format (HH:MM-HH:MM)
-- ✅ **Travel time** - Realistic gaps between activities (6-60 minutes)
-- ✅ **Duration accuracy** - Total duration matches requested duration
-- ✅ **No time conflicts** - Activities don't overlap
-
-### **Address Validation:**
-
-- ✅ **Complete addresses** - Google Maps ready format
-- ✅ **Address format** - Proper Singapore address format
-- ✅ **No missing addresses** - All locations have addresses
-- ✅ **Address consistency** - Consistent formatting across all locations
-
-### **Budget Validation:**
-
-- ✅ **Budget filtering** - Appropriate cost ranges for budget tier
-- ✅ **Cost estimation** - Realistic per-person costs
-- ✅ **Budget consistency** - All activities match budget tier
-
-### **Interest Validation:**
-
-- ✅ **Smart interest matching** - If no interests specified, all activities included. If interests specified, only matching activities included
-- ✅ **Food exception** - Food locations are always included (needed for meals)
-- ✅ **Location type filtering** - Correct activity types selected based on interests
-- ✅ **Relevance scoring** - Activities are relevant to user query and interests
-
-### **Test Success Criteria:**
-
-- **100% test pass rate** - All 15 scenarios must pass
-- **No missing meals** - Expected meals must be present
-- **No missing activities** - Expected activity types must be present
-- **Proper timing** - All activities have valid start/end times
-- **Complete addresses** - All locations have addresses
-- **Realistic costs** - Cost estimates match budget tier
-
-## 🧪 Testing & Configuration
-
-### **Running Tests:**
-
-#### **Quick Test (Recommended for Development):**
-
-```bash
-cd ai-dating-app-ai
-python tests/quick_test.py
-```
-
-#### **Full Test Suite (Comprehensive):**
-
-```bash
-cd ai-dating-app-ai
-python tests/test_date_planner.py
-```
-
-### **Test Configuration:**
-
-#### **Default Test Location:**
-
-- **Latitude:** 1.3521 (Singapore city center)
-- **Longitude:** 103.8198 (Singapore city center)
-
-#### **Test Budget Tiers:**
-
-- **$** - $20-$40 per person
-- **$$** - $40-$70 per person
-- **$$$** - $70-$100 per person
-- **$$$$** - $100+ per person
-
-#### **Test Interests:**
-
-- **food** - Restaurants, cafes, food courts
-- **culture** - Museums, galleries, cultural sites
-- **nature** - Parks, nature reserves, outdoor activities
-- **activity** - Sports, entertainment, active pursuits
-
-### **Test Output Examples:**
-
-#### **Success Example:**
-
-```
-🧪 Testing: Morning Coffee Date
-   Time: 09:00 - 12:00
-   Duration: 3.0 hours
-   Budget: $
-   Type: casual
-   ✅ PASSED: All validations passed! 2 activities planned
-
-📋 Detailed Results for Morning Coffee Date:
-   Total Duration: 3.0 hours
-   Estimated Cost: $20-$40 per person
-   Activities: 2
-
-🗓️ Itinerary:
-   1. 09:00-10:00 | Coffee/Breakfast
-      Location: HUA FONG KEE FOOD COURT PTE LTD
-      Address: Address not available
-      Duration: 1.0 hours
-   2. 10:06-12:06 | Morning Walk
-      Location: MacRitchie Singapore & Singapore Nature Reserve
-      Address: MacRitchie Reservoir Park
-      Duration: 2.0 hours
-```
-
-#### **Failure Example:**
-
-```
-🧪 Testing: Evening Date
-   ❌ FAILED: Issues found: Missing expected meal: Dinner, No travel time detected
-```
-
-### **Test Results Generated:**
-
-- **Console output** with real-time results
-- **JSON results file** with timestamp (e.g., `test_results_20241225_120000.json`)
-- **Success/failure summary** with statistics
-- **Detailed validation** for each test case
-
-### **Troubleshooting Common Issues:**
-
-#### **"No activities planned":**
-
-- Check if embeddings are generated
-- Verify data files are present
-- Check budget filtering (might be too restrictive)
-
-#### **"Missing addresses":**
-
-- Some locations may not have complete address data
-- This is expected for some test cases
-
-#### **"No travel time detected":**
-
-- Activities might be at the same location
-- Travel time calculation might need adjustment
-
-### **Setup Requirements:**
-
-- AI Date Planner must be initialized
-- Embeddings must be generated (`setup_date_planner_embeddings.py`)
-- Data files must be present in `ai/ai_date_planner/data/`
-
-### **Adding New Tests:**
-
-To add a new test scenario:
-
-1. **Add test case** in `test_date_planner.py`:
-
-```python
-tester.run_test(
-    "Your Test Name",
-    preferences,
-    "user query",
-    ["expected", "meals"],
-    ["expected", "activity", "types"]
-)
-```
-
-2. **Update validation** if needed in `validate_result()` method
-
-3. **Run test** to verify it works correctly
-
-### **Test Goals:**
-
-The test suite ensures:
-
-- ✅ **Reliability** - Consistent results across different scenarios
-- ✅ **Accuracy** - Correct meal and activity planning
-- ✅ **Completeness** - All required information is provided
-- ✅ **Realism** - Travel times and costs are realistic
-- ✅ **Flexibility** - Works with different time ranges and preferences
-
 ## 🚀 Usage Examples
 
-### **Quick Coffee Date (3 hours):**
-
-- **Input**: 09:00-12:00, $ budget
-- **Output**:
-  ```
-  • 09:00-10:00: Coffee/Breakfast at HUA FONG KEE FOOD COURT PTE LTD
-  • 10:06-12:06: Morning Walk at MacRitchie Singapore & Singapore Nature Reserve
-  ```
-- **Travel Time**: 6 minutes between locations
-
-### **Full Day Date (7 hours):**
-
-- **Input**: 10:00-17:00, $$ budget
-- **Output**:
-  ```
-  • 10:00-11:00: Coffee/Breakfast at AH SIN FAMILY EATING HOUSE
-  • 11:06-13:06: Morning Walk at MacRitchie Singapore & Singapore Nature Reserve
-  • 13:12-17:12: Light Activity at Co Curricular Activities Branch
-  ```
-- **Travel Time**: 6 minutes between each location
-
-### **Romantic Evening (4 hours):**
-
-- **Input**: 18:00-22:00, $$$ budget
-- **Output**:
-  ```
-  • 18:00-20:00: Dinner at JUMBO PREMIUM SEAFOOD
-  • 20:06-22:06: Sunset Walk at MacRitchie Singapore & Singapore Nature Reserve
-  • 22:12-23:12: Sports Activity at Co Curricular Activities Branch
-  ```
-- **Travel Time**: 6 minutes between each location
-
-## 🧪 Sample API Inputs for Swagger Testing
-
-Here are 5 comprehensive sample inputs you can copy and paste into Swagger to test the AI Date Planner:
-
-### **Sample 1: Morning Coffee Date (3 hours)**
-
-_Tests: Coffee/Breakfast + Activities, no lunch_
+### **Sample 1: Morning Coffee Date with Max Exclusions**
 
 ```json
 {
@@ -782,30 +395,17 @@ _Tests: Coffee/Breakfast + Activities, no lunch_
   "interests": ["food", "nature"],
   "budget_tier": "$",
   "date_type": "casual",
-  "user_query": "casual morning coffee and nature walk"
+  "exclusions": ["sports", "cultural"]
 }
 ```
 
-### **Sample 2: Sports Date with All Meals (7 hours)**
+**Expected Output:**
 
-_Tests: Lunch + Coffee Break + Sports + Dinner_
+- Breakfast at cafe ($10) - Early-opening (not Hoshino)
+- Nature walk (sports/cultural excluded by user)
+- Total: 3 hours, $10 per person (attractions are free)
 
-```json
-{
-  "start_time": "14:00",
-  "end_time": "21:00",
-  "start_latitude": 1.3521,
-  "start_longitude": 103.8198,
-  "interests": ["sports", "food"],
-  "budget_tier": "$$",
-  "date_type": "adventurous",
-  "user_query": "sports date with swimming and dinner"
-}
-```
-
-### **Sample 3: Romantic Evening Date (4 hours)**
-
-_Tests: Dinner + Activities_
+### **Sample 2: Romantic Evening Date**
 
 ```json
 {
@@ -816,30 +416,17 @@ _Tests: Dinner + Activities_
   "interests": ["food", "culture"],
   "budget_tier": "$$$",
   "date_type": "romantic",
-  "user_query": "romantic dinner with city views and cultural activity"
+  "exclusions": []
 }
 ```
 
-### **Sample 4: Night Date (3 hours)**
+**Expected Output:**
 
-_Tests: Late Dinner + Activities_
+- Romantic dinner at rooftop/waterfront restaurant ($50-70) - Re-ranked #1 by keywords
+- Scenic walk or shopping (RAG prioritizes scenic/beautiful)
+- Total: 4 hours, $50-70 per person (activities are free)
 
-```json
-{
-  "start_time": "21:00",
-  "end_time": "00:00",
-  "start_latitude": 1.3521,
-  "start_longitude": 103.8198,
-  "interests": ["food", "activity"],
-  "budget_tier": "$$",
-  "date_type": "casual",
-  "user_query": "late night dinner and entertainment"
-}
-```
-
-### **Sample 5: Full Day Cultural Date (8 hours)**
-
-_Tests: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner_
+### **Sample 3: Full Day Date (8 hours)**
 
 ```json
 {
@@ -849,21 +436,72 @@ _Tests: Coffee/Breakfast + Lunch + Coffee Break + Activities + Dinner_
   "start_longitude": 103.8198,
   "interests": ["food", "culture", "nature"],
   "budget_tier": "$$",
-  "date_type": "cultural",
-  "user_query": "full day cultural exploration with museums and nature"
+  "date_type": "casual",
+  "exclusions": ["sports"]
 }
 ```
 
-### **Expected Outputs:**
+**Expected Output:**
 
-Each sample will return:
+- Breakfast at cafe ($10) - Not Toast Box/Ya Kun (reserved for breakfast only)
+- Morning activity (shopping, walk, or cultural - based on date type)
+- Lunch at restaurant ($16-32) - Not breakfast-only places
+- Afternoon activity (based on date type priority)
+- Coffee break at cafe ($10)
+- Evening activity (final activity may be extended to hit 75% coverage)
+- Dinner at restaurant ($20-40) - Date type appropriate
+- Total: 8 hours, $56-92 per person (only food costs, activities free)
 
-- **Realistic travel times** (6-60 minutes between locations)
-- **Proper meal sequencing** (food before activities)
-- **Complete addresses** (Google Maps ready)
-- **Flexible durations** (meals adapt to available time)
-- **Interest-based filtering** (activities match user interests)
+## ⚠️ Validation & Error Handling
+
+### **Frontend Validation:**
+
+- ✅ All required fields filled before "Plan Our Date" button enabled
+- ✅ Location coordinates present (from geocoding)
+- ✅ Max 2 exclusions enforced (alert shown if user tries to select 3rd)
+- ✅ Time validation (end time after start time)
+
+### **Backend Validation:**
+
+- ✅ Location coordinates required (throws error if missing)
+- ✅ 75% time usage validation (throws error if insufficient activities)
+- ✅ Interest/exclusion conflict resolution
+- ✅ Budget tier validation ($, $$, or $$$)
+
+### **Error Messages:**
+
+```
+❌ "Location Required" - No coordinates provided
+❌ "Maximum Exclusions Reached" - User tried to select 3+ exclusions
+❌ "Unable to plan sufficient activities for 8.0 hours" - 75% validation failed
+```
+
+## 📊 System Features & Recent Changes
+
+### **Key Features:**
+
+1. ✅ **RAG Scoring**: 70% semantic relevance, 30% proximity (prioritizes quality)
+2. ✅ **Diversity Sampling**: 70 food + 30 non-food minimum (prevents food-only results)
+3. ✅ **Date Type Prioritization**: 3-layer system (RAG + food re-rank + activity selection)
+4. ✅ **Max 1 Sports Activity**: Walks unlimited, sports limited
+5. ✅ **Meal-Specific Filtering**: Breakfast-only excluded from lunch/dinner
+6. ✅ **Late-Opening Filter**: Hoshino Coffee avoided for early breakfast
+7. ✅ **Budget Scope**: ONLY food (attractions/activities/heritage always included)
+8. ✅ **Auto-Extension**: Last activity extended to meet 75% coverage
+9. ✅ **Address Format**: `Blk X Street, #floor-unit, Singapore postal`
+10. ✅ **Interest Filter**: Always keeps attractions/activities/heritage (RAG prioritizes)
+11. ✅ **Max 2 Exclusions**: Prevents over-filtering
+12. ✅ **Location Validation**: Frontend and backend coordinate checks
+
+### **Future Improvements:**
+
+1. **Real-time integration** - Connect to live restaurant/event APIs
+2. **Multi-city support** - Expand beyond Singapore
+3. **Real-time traffic data** - Integrate with Google Maps API
+4. **Transport mode selection** - Walking, driving, or public transport
+5. **Weather integration** - Adjust outdoor activities based on forecast
+6. **User feedback loop** - Learn from user preferences over time
 
 ---
 
-_This documentation covers the current state of the AI Date Planner. Rules and hardcoded elements may change as the system evolves._
+_This documentation reflects the current state of the AI Date Planner as of the latest updates. The system is production-ready and fully functional._

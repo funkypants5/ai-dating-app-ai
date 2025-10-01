@@ -123,8 +123,7 @@ class DatePlanRequest(BaseModel):
     interests: List[str] = ["food", "culture", "nature"]
     budget_tier: str = "$$"
     date_type: str = "casual"
-    preferred_location_types: List[str] = ["food", "attraction", "activity", "heritage"]
-    user_query: Optional[str] = None
+    exclusions: Optional[List[str]] = None  # Backend-only: What user does NOT want
 
 @app.post("/ai/plan-date")
 def plan_date(request: DatePlanRequest):
@@ -141,12 +140,11 @@ def plan_date(request: DatePlanRequest):
             start_longitude=request.start_longitude,
             interests=request.interests,
             budget_tier=request.budget_tier,
-            date_type=request.date_type,
-            preferred_location_types=request.preferred_location_types
+            date_type=request.date_type
         )
         
-        # Plan the date
-        result = planner.plan_date(preferences, request.user_query)
+        # Plan the date with exclusions
+        result = planner.plan_date(preferences, request.exclusions)
         
         return {
             "success": True,

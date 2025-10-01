@@ -4,7 +4,6 @@ from .data_processor import DataProcessor, Location
 from .embedding_service import EmbeddingService
 from .rule_engine import RuleEngine, UserPreferences, FilterResult
 from .rag_service import RAGService, RAGResult
-from .llm_query_parser import LLMQueryParser, ParsedQuery
 import json
 import os
 
@@ -46,62 +45,53 @@ class AIDatePlanner:
         self.embedding_service = EmbeddingService()
         self.rule_engine = RuleEngine()
         self.rag_service = RAGService(self.embedding_service)
-        self.llm_query_parser = LLMQueryParser()
         
         # Cache for processed data
         self._locations_cache = None
         self._embeddings_ready = False
+        self._current_exclusions = []  # Store current request's exclusions
         
         print("AI Date Planner initialized successfully!")
     
-    def plan_date(self, preferences: UserPreferences, user_query: str = None) -> DatePlanResult:
+    def plan_date(self, preferences: UserPreferences, exclusions: List[str] = None) -> DatePlanResult:
         """
-        Plan a complete date based on user preferences and optional query.
+        Plan a complete date based on user preferences and optional exclusions.
         
         Args:
             preferences: User preferences for the date
-            user_query: Optional specific user query (e.g., "romantic dinner with city view")
+            exclusions: Optional list of what user does NOT want (e.g., ["sports", "cultural"])
             
         Returns:
             DatePlanResult with complete date plan and processing details
         """
         print(f"\n🎯 Starting AI Date Planning...")
-        print(f"User Query: {user_query or 'None'}")
+        print(f"Exclusions: {exclusions or 'None'}")
         print(f"Preferences: {preferences.start_time} - {preferences.end_time or 'flexible'}")
         
-        # Step 0: Parse user query with LLM for intelligent requirements extraction
-        parsed_query = None
-        if user_query:
-            print("\n🤖 Step 0: LLM query parsing...")
-            try:
-                preferences_dict = {
-                    'start_time': preferences.start_time,
-                    'end_time': preferences.end_time,
-                    'interests': preferences.interests,
-                    'budget_tier': preferences.budget_tier,
-                    'date_type': preferences.date_type
-                }
-                parsed_query = self.llm_query_parser.parse_query(user_query, preferences_dict)
-                print(f"LLM Parsing: {len(parsed_query.inclusions)} inclusions, {len(parsed_query.exclusions)} exclusions")
-                print(f"Confidence: {parsed_query.confidence_score:.2f}")
-            except Exception as e:
-                print(f"LLM parsing failed, using fallback: {e}")
-                parsed_query = None
+        # Validate that starting coordinates are provided
+        if preferences.start_latitude is None or preferences.start_longitude is None:
+            raise ValueError(
+                "Starting location is required. Please select a location in Singapore (e.g., Orchard, Marina Bay, Sentosa, etc.) "
+                "before planning your date."
+            )
+        
+        # Store exclusions for use throughout the planning process
+        self._current_exclusions = exclusions or []
         
         # Step 1: Load and process location data
         locations = self._get_locations()
         
         # Step 2: Apply rule-based filtering
         print("\n📋 Step 1: Rule-based filtering...")
-        filter_result = self.rule_engine.filter_locations(locations, preferences)
+        filter_result = self.rule_engine.filter_locations(locations, preferences, self._current_exclusions)
         
         # Step 3: RAG-based relevance search
         print("\n🧠 Step 2: AI-powered relevance search...")
-        rag_result = self.rag_service.find_relevant_locations(filter_result, preferences, user_query)
+        rag_result = self.rag_service.find_relevant_locations(filter_result, preferences)
         
-        # Step 4: Generate specific itinerary with LLM-enhanced planning
+        # Step 4: Generate specific itinerary
         print("\n📅 Step 3: Generating specific itinerary...")
-        date_plan = self._generate_itinerary(rag_result, preferences, user_query, parsed_query)
+        date_plan = self._generate_itinerary(rag_result, preferences)
         
         # Compile processing statistics
         processing_stats = {
@@ -109,9 +99,7 @@ class AIDatePlanner:
             'filtered_locations': len(filter_result.filtered_locations),
             'relevant_locations': len(rag_result.relevant_locations),
             'final_activities': len(date_plan.itinerary),
-            'embeddings_ready': self._embeddings_ready,
-            'llm_parsing_used': parsed_query is not None,
-            'llm_confidence': parsed_query.confidence_score if parsed_query else 0.0
+            'embeddings_ready': self._embeddings_ready
         }
         
         print(f"\n✅ Date planning complete!")
@@ -133,7 +121,7 @@ class AIDatePlanner:
         
         return self._locations_cache
     
-    def _generate_itinerary(self, rag_result: RAGResult, preferences: UserPreferences, user_query: str = None, parsed_query: ParsedQuery = None) -> DatePlan:
+    def _generate_itinerary(self, rag_result: RAGResult, preferences: UserPreferences) -> DatePlan:
         """Generate a specific itinerary from relevant locations"""
         duration = preferences.get_duration_hours()
         relevant_locations = rag_result.relevant_locations
@@ -141,13 +129,58 @@ class AIDatePlanner:
         # Group locations by type
         location_groups = self._group_locations_by_type(relevant_locations)
         
+        # Filter food locations for meal appropriateness and date type
+        # Note: meal_type-specific filtering happens in _plan_next_meal
+        location_groups['food'] = [
+            loc for loc in location_groups['food']
+            if self._is_appropriate_for_meal(loc) and self._is_appropriate_for_date_type(loc, preferences.date_type)
+        ]
+        
+        # Re-rank food by date type match for ALL date types
+        location_groups['food'] = self._rank_by_date_type_match(location_groups['food'], preferences.date_type)
+        
         # Generate itinerary based on time of day and duration
         itinerary = self._create_time_based_itinerary(
             location_groups, 
             preferences, 
-            duration,
-            user_query,
-            parsed_query
+            duration
+        )
+        
+        # Validate itinerary uses at least 75% of requested time
+        total_activity_time = sum(item.get('duration', 0) for item in itinerary)
+        time_usage_percentage = (total_activity_time / duration) * 100 if duration > 0 else 0
+        
+        if time_usage_percentage < 75 and duration > 2 and len(itinerary) > 0:  # Only enforce for dates > 2 hours
+            print(f"⚠️ Low coverage: {time_usage_percentage:.1f}% ({total_activity_time:.1f}/{duration:.1f} hours)")
+            
+            # Try to extend the last activity to meet EXACTLY 75% threshold (not 100%)
+            target_time = duration * 0.75  # 75% of requested duration
+            time_needed = target_time - total_activity_time
+            
+            if time_needed > 0 and len(itinerary) > 0:
+                last_activity = itinerary[-1]
+                
+                # Don't extend meals too much, but activities can be extended
+                if last_activity.get('type') != 'food':
+                    print(f"🔧 Extending last activity by {time_needed:.1f} hours to reach 75% coverage ({target_time:.1f}/{duration:.1f} hours)")
+                    last_activity['duration'] += time_needed
+                    last_activity['end_time'] = self._add_hours(last_activity['start_time'], last_activity['duration'])
+                    
+                    # Recalculate coverage
+                    total_activity_time = sum(item.get('duration', 0) for item in itinerary)
+                    time_usage_percentage = (total_activity_time / duration) * 100
+                    print(f"✅ Coverage after extension: {time_usage_percentage:.1f}% ({total_activity_time:.1f}/{duration:.1f} hours)")
+                else:
+                    # If last activity is food, still raise error
+                    print(f"📊 Debug - Location groups available:")
+                    for loc_type, locs in location_groups.items():
+                        print(f"  - {loc_type}: {len(locs)} locations")
+                    
+                    raise ValueError(
+                        f"Unable to plan sufficient activities for {duration:.1f} hours. "
+                        f"Only {total_activity_time:.1f} hours of activities available ({time_usage_percentage:.0f}% coverage). "
+                        f"Try: 1) Selecting more interests, 2) Reducing exclusions, 3) Choosing a shorter duration (4-6 hours recommended), "
+                        f"or 4) Selecting a different location with more nearby attractions."
         )
         
         # Calculate estimated cost
@@ -169,7 +202,7 @@ class AIDatePlanner:
         )
     
     def _group_locations_by_type(self, locations: List[Location]) -> Dict[str, List[Location]]:
-        """Group locations by type for itinerary planning"""
+        """Group locations by type for itinerary planning with smart filtering"""
         groups = {
             'food': [],
             'attraction': [],
@@ -183,7 +216,149 @@ class AIDatePlanner:
         
         return groups
     
-    def _create_time_based_itinerary(self, location_groups: Dict[str, List[Location]], preferences: UserPreferences, duration: float, user_query: str = None, parsed_query: ParsedQuery = None) -> List[Dict[str, Any]]:
+    def _is_appropriate_for_meal(self, location: Location, meal_type: str = None) -> bool:
+        """Check if a location is appropriate for a meal (not an activity center)"""
+        name_lower = location.name.lower()
+        desc_lower = (location.description or '').lower()
+        
+        # Debug logging for problematic venues
+        if 'jumbo' in name_lower or 'seafood' in name_lower:
+            print(f"🐛 Checking: {location.name} for meal_type={meal_type}")
+        
+        # Keywords that indicate NOT a restaurant/cafe
+        non_food_keywords = [
+            'stadium', 'sports centre', 'sports center', 'gym', 'fitness',
+            'playground', 'activity center', 'activity centre', 'amazonia',
+            'museum', 'gallery', 'park', 'reserve', 'trail', 'zoo', 'wildlife'
+        ]
+        
+        # Check if it's actually a food venue
+        is_likely_food = any(keyword in name_lower or keyword in desc_lower for keyword in [
+            'restaurant', 'cafe', 'coffee', 'dining', 'bistro', 'eatery', 
+            'food court', 'hawker', 'kitchen', 'grill', 'bar', 'pub', 'kopitiam'
+        ])
+        
+        # Not appropriate if it has non-food keywords and isn't clearly food
+        has_non_food = any(keyword in name_lower for keyword in non_food_keywords)
+        
+        # Specific exclusions that are never appropriate for meals
+        never_meal_keywords = ['kidzania', 'amazonia', 'wildlife', 'zoo', 'aquarium']
+        if any(keyword in name_lower for keyword in never_meal_keywords):
+            return False
+        
+        # If it has non-food keywords but also has clear food indicators, allow it
+        if has_non_food and not is_likely_food:
+            return False
+        
+        # Special handling for breakfast and coffee breaks
+        if meal_type in ['Coffee/Breakfast', 'Breakfast', 'Coffee Break']:
+            # POSITIVE: What we WANT for breakfast/coffee
+            breakfast_keywords = [
+                'cafe', 'coffee', 'kopi', 'breakfast', 'brunch', 'bakery', 
+                'toast', 'western', 'bistro', 'patisserie', 'sandwich', 'bagel',
+                'espresso', 'latte', 'cappuccino', 'americano', 'tea house'
+            ]
+            has_breakfast_vibe = any(keyword in name_lower or keyword in desc_lower for keyword in breakfast_keywords)
+            
+            # NEGATIVE: What we DON'T WANT for breakfast/coffee
+            non_breakfast_keywords = [
+                'korean', 'chinese', 'indian', 'italian', 'french', 'japanese', 
+                'thai', 'vietnamese', 'malay', 'seafood', 'steakhouse', 'steak',
+                'fine dining', 'asian cuisine', 'peranakan', 'vegetarian restaurant',
+                'noodles', 'ramen', 'sushi', 'dim sum', 'hotpot', 'bbq', 'grill'
+            ]
+            has_non_breakfast = any(keyword in name_lower or keyword in desc_lower for keyword in non_breakfast_keywords)
+            
+            # STRICT RULE: Must have breakfast vibe OR be hawker/food court
+            if has_non_breakfast and not has_breakfast_vibe:
+                # Only allow hawker centers and food courts (they usually have breakfast options)
+                if any(keyword in name_lower for keyword in ['hawker', 'food court', 'kopitiam']):
+                    if 'jumbo' in name_lower or 'seafood' in name_lower:
+                        print(f"✅ {location.name}: Allowed (hawker/food court)")
+                    return True
+                else:
+                    if 'jumbo' in name_lower or 'seafood' in name_lower:
+                        print(f"❌ {location.name}: REJECTED for {meal_type} (has non-breakfast keywords, no breakfast vibe)")
+                    return False  # Reject all other non-breakfast venues
+            
+            # If it has breakfast vibe, allow it
+            if has_breakfast_vibe:
+                return True
+            
+            # If no specific breakfast indicators but is a hawker/food court, allow
+            if any(keyword in name_lower for keyword in ['hawker', 'food court', 'kopitiam']):
+                return True
+            
+            # Otherwise, be conservative and reject
+            return False
+        
+        # Special handling for lunch and dinner - EXCLUDE breakfast-only places
+        if meal_type in ['Lunch', 'Dinner', 'Late Dinner']:
+            # Breakfast-only places that should NOT serve lunch/dinner
+            breakfast_only_keywords = [
+                'ya kun', 'toast box', 'kaya toast', 'killiney', 'wang cafe',
+                'kopitiam', 'yakun', 'toastbox'
+            ]
+            is_breakfast_only = any(keyword in name_lower for keyword in breakfast_only_keywords)
+            
+            if is_breakfast_only:
+                if 'ya kun' in name_lower or 'toast box' in name_lower:
+                    print(f"❌ {location.name}: REJECTED for {meal_type} (breakfast-only establishment)")
+                return False  # Don't serve lunch/dinner at breakfast places
+            
+        return True
+    
+    def _is_appropriate_for_date_type(self, location: Location, date_type: str) -> bool:
+        """Check if location is appropriate for the date type"""
+        name_lower = location.name.lower()
+        desc_lower = (location.description or '').lower()
+        
+        # Romantic and cultural dates exclude child-focused venues
+        if date_type in ['romantic', 'cultural']:
+            child_exclusions = ['kids', 'children', 'junior', 'playground', 'family fun', 'family entertainment']
+            if any(keyword in name_lower or keyword in desc_lower for keyword in child_exclusions):
+                return False
+        
+        # Adventurous and casual dates can have any venue
+        return True
+    
+    def _rank_by_date_type_match(self, locations: List[Location], date_type: str) -> List[Location]:
+        """Re-rank food locations using simple keyword matching for date type"""
+        # Date type keyword mapping (simple approach)
+        date_type_keywords = {
+            'romantic': ['romantic', 'intimate', 'fine dining', 'rooftop', 'waterfront', 'wine', 'candlelit', 'elegant', 'cozy', 'scenic'],
+            'cultural': ['traditional', 'heritage', 'cultural', 'authentic', 'peranakan', 'local', 'historical', 'museum'],
+            'adventurous': ['outdoor', 'adventure', 'unique', 'fusion', 'hawker', 'street food', 'market', 'experimental'],
+            'casual': ['casual', 'relaxed', 'friendly', 'comfortable', 'bistro', 'cafe', 'laid-back', 'family']
+        }
+        
+        keywords = date_type_keywords.get(date_type, [])
+        if not keywords:
+            return locations
+        
+        # Score each location by keyword matches
+        scored = []
+        for loc in locations:
+            score = 0
+            name_lower = loc.name.lower()
+            desc_lower = (loc.description or '').lower()
+            
+            for keyword in keywords:
+                if keyword in name_lower or keyword in desc_lower:
+                    score += 1
+            
+            scored.append((score, loc))
+        
+        # Sort by score (descending)
+        scored.sort(key=lambda x: x[0], reverse=True)
+        
+        # Count matches
+        matched = sum(1 for score, _ in scored if score > 0)
+        print(f"  🎯 Date type keyword matching ({date_type}): {matched}/{len(locations)} venues matched")
+        
+        return [loc for _, loc in scored]
+    
+    def _create_time_based_itinerary(self, location_groups: Dict[str, List[Location]], preferences: UserPreferences, duration: float) -> List[Dict[str, Any]]:
         """Create itinerary based on actual time ranges and duration"""
         itinerary = []
         current_time = self._parse_time(preferences.start_time)
@@ -193,11 +368,14 @@ class AIDatePlanner:
             end_time = self._add_hours(current_time, duration)
         
         # Sequential planning: plan each activity/meal after the previous one
-        max_activities = 5  # Reasonable limit for date planning
+        # Dynamic max activities based on duration (roughly 1.5 hours per activity/meal on average)
+        max_activities = max(5, int(duration / 1.0) + 2)  # At least 5, scale with duration
         activity_count = 0
         
+        print(f"📋 Planning itinerary for {duration:.1f} hours (max {max_activities} activities)")
+        
         while self._time_difference(current_time, end_time) > 0.5 and activity_count < max_activities:  # At least 30 minutes remaining
-            next_activity = self._plan_next_activity(location_groups, current_time, end_time, itinerary, preferences, user_query, parsed_query)
+            next_activity = self._plan_next_activity(location_groups, current_time, end_time, itinerary, preferences)
             if next_activity:
                 # Check if this activity would exceed the end time
                 if self._time_after_or_equal(next_activity['end_time'], end_time):
@@ -211,12 +389,14 @@ class AIDatePlanner:
                     current_time = next_activity['end_time']
                     activity_count += 1
             else:
+                print(f"⚠️ Could not plan next activity at {current_time} (ran out of locations)")
                 break  # No more activities can be planned
         
+        print(f"✅ Planned {len(itinerary)} activities totaling {sum(item.get('duration', 0) for item in itinerary):.1f} hours")
         return itinerary
     
     
-    def _plan_next_activity(self, location_groups: Dict[str, List[Location]], current_time: str, end_time: str, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences, user_query: str = None, parsed_query: ParsedQuery = None) -> Optional[Dict[str, Any]]:
+    def _plan_next_activity(self, location_groups: Dict[str, List[Location]], current_time: str, end_time: str, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences) -> Optional[Dict[str, Any]]:
         """Plan the next activity/meal sequentially with proper travel time"""
         time_remaining = self._time_difference(current_time, end_time)
         if time_remaining < 0.5:  # Less than 30 minutes
@@ -225,20 +405,20 @@ class AIDatePlanner:
         current_hour = int(current_time.split(':')[0])
         
         # PRIORITIZE MEALS: Always check if we should plan a meal first
-        if self._should_plan_meal(current_time, existing_itinerary, preferences, user_query, parsed_query):
+        if self._should_plan_meal(current_time, existing_itinerary, preferences):
             meal_result = self._plan_next_meal(location_groups, current_time, time_remaining, existing_itinerary)
             if meal_result:  # If we can plan a meal, do it
                 return meal_result
         
         # If no meal needed or couldn't plan meal, plan activity
-        return self._plan_next_activity_only(location_groups, current_time, time_remaining, existing_itinerary, preferences, user_query, parsed_query)
+        return self._plan_next_activity_only(location_groups, current_time, time_remaining, existing_itinerary, preferences)
     
-    def _should_plan_meal(self, current_time: str, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences, user_query: str = None, parsed_query: ParsedQuery = None) -> bool:
+    def _should_plan_meal(self, current_time: str, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences) -> bool:
         """Determine if we should plan a meal at this time"""
         current_hour = int(current_time.split(':')[0])
         
-        # Check if user wants to exclude food activities (using LLM or fallback)
-        if self._should_exclude_activity_type(user_query, 'food', parsed_query):
+        # Check if user wants to exclude food activities
+        if 'food' in self._current_exclusions:
             return False
         
         # Count existing meals and check for specific meal types
@@ -312,24 +492,88 @@ class AIDatePlanner:
                 used_location_ids.add(a['location_obj'].id)
             elif hasattr(a, 'id'):  # Direct Location object
                 used_location_ids.add(a.id)
+        
         available_food = [loc for loc in location_groups['food'] if loc.id not in used_location_ids]
         
         if not available_food:
             # If all food locations used, allow reuse but prefer different ones
             available_food = location_groups['food']
         
-        if meal_type == "Coffee Break":
-            # Prefer cafes, but use any food location if no cafes found
-            cafe_keywords = ['cafe', 'coffee', 'kopi', 'kopitiam', 'bistro', 'brunch', 'breakfast']
-            cafe_locations = [loc for loc in available_food 
-                            if any(keyword in loc.name.lower() for keyword in cafe_keywords)]
-            if cafe_locations:
-                food_location = cafe_locations[min(food_index, len(cafe_locations) - 1)]
+        # Filter locations based on meal type appropriateness
+        meal_appropriate_food = [loc for loc in available_food if self._is_appropriate_for_meal(loc, meal_type)]
+        
+        print(f"🍽️ Planning {meal_type}: {len(available_food)} total, {len(meal_appropriate_food)} appropriate")
+        
+        # CRITICAL: Never fall back to inappropriate venues for breakfast/coffee
+        if not meal_appropriate_food:
+            if meal_type in ['Coffee/Breakfast', 'Breakfast', 'Coffee Break']:
+                # For breakfast/coffee, only allow hawker centers as last resort
+                hawker_fallback = [loc for loc in available_food 
+                                  if any(keyword in loc.name.lower() for keyword in ['hawker', 'food court', 'kopitiam'])]
+                if hawker_fallback:
+                    print(f"⚠️ No breakfast cafes found, using hawker centers as fallback")
+                    meal_appropriate_food = hawker_fallback
+                else:
+                    print(f"❌ ERROR: No breakfast-appropriate venues found!")
+                    return None  # Don't plan inappropriate meals
             else:
-                # Fallback to regular food locations if no cafes found
-                food_location = available_food[min(food_index, len(available_food) - 1)]
+                # For lunch/dinner, fallback is okay
+                meal_appropriate_food = available_food
+        
+        if meal_type == "Coffee/Breakfast":
+            # Prioritize breakfast/cafe places - check both name AND description
+            breakfast_keywords = [
+                'cafe', 'coffee', 'kopi', 'kopitiam', 'bistro', 'brunch', 
+                'breakfast', 'bakery', 'toast', 'patisserie', 'espresso', 'latte'
+            ]
+            breakfast_locations = [loc for loc in meal_appropriate_food 
+                                 if any(keyword in loc.name.lower() or keyword in (loc.description or '').lower() 
+                                       for keyword in breakfast_keywords)]
+            
+            # Filter out cafes that typically don't open early (before 10 AM)
+            late_opening_keywords = ['hoshino', 'specialty coffee', 'artisan coffee', 'third wave']
+            early_breakfast_locations = [
+                loc for loc in breakfast_locations 
+                if not any(keyword in loc.name.lower() or keyword in (loc.description or '').lower() 
+                          for keyword in late_opening_keywords)
+            ]
+            
+            print(f"☕ Found {len(breakfast_locations)} breakfast locations, {len(early_breakfast_locations)} open early")
+            
+            if early_breakfast_locations:
+                print(f"✅ Selected breakfast: {early_breakfast_locations[0].name}")
+                food_location = early_breakfast_locations[0]  # Take early-opening cafe
+            elif breakfast_locations:
+                # If only late cafes available, use them anyway
+                print(f"⚠️ Using late-opening cafe: {breakfast_locations[0].name}")
+                food_location = breakfast_locations[0]
+            else:
+                # Fallback to hawker centers
+                hawker_locations = [loc for loc in meal_appropriate_food
+                                  if any(keyword in loc.name.lower() for keyword in ['hawker', 'food court'])]
+                if hawker_locations:
+                    food_location = hawker_locations[0]
+                else:
+                    food_location = meal_appropriate_food[min(food_index, len(meal_appropriate_food) - 1)]
+        elif meal_type == "Coffee Break":
+            # STRICT: Only cafes and coffee shops - check both name AND description
+            cafe_keywords = [
+                'cafe', 'coffee', 'kopi', 'kopitiam', 'bistro', 'espresso', 
+                'latte', 'cappuccino', 'americano', 'tea house', 'patisserie'
+            ]
+            cafe_locations = [loc for loc in meal_appropriate_food 
+                            if any(keyword in loc.name.lower() or keyword in (loc.description or '').lower() 
+                                  for keyword in cafe_keywords)]
+            if cafe_locations:
+                food_location = cafe_locations[0]  # Take the first/best cafe
+            else:
+                # If no cafes found, prefer hawker centers over restaurants
+                hawker_locations = [loc for loc in meal_appropriate_food
+                                  if any(keyword in loc.name.lower() for keyword in ['hawker', 'food court', 'kopitiam'])]
+                if hawker_locations:
+                    food_location = hawker_locations[0]
         else:
-            food_location = available_food[min(food_index, len(available_food) - 1)]
+                    food_location = meal_appropriate_food[min(food_index, len(meal_appropriate_food) - 1)]
         
         # Add travel time if there are previous activities
         start_time = current_time
@@ -353,13 +597,24 @@ class AIDatePlanner:
             'location_obj': food_location
         }
     
-    def _plan_next_activity_only(self, location_groups: Dict[str, List[Location]], current_time: str, time_remaining: float, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences = None, user_query: str = None, parsed_query: ParsedQuery = None) -> Optional[Dict[str, Any]]:
-        """Plan the next non-meal activity with travel time"""
+    def _plan_next_activity_only(self, location_groups: Dict[str, List[Location]], current_time: str, time_remaining: float, existing_itinerary: List[Dict[str, Any]], preferences: UserPreferences = None) -> Optional[Dict[str, Any]]:
+        """Plan the next non-meal activity with travel time, considering date type preferences"""
         # Count existing activities to avoid too many of the same type
         activity_count = len([a for a in existing_itinerary if a.get('type') != 'food'])
         
-        # Check for user exclusions
-        exclude_sports = self._should_exclude_sports(user_query, parsed_query)
+        # Count sports activities specifically (NOT including walks)
+        sports_count = len([a for a in existing_itinerary 
+                           if a.get('type') == 'activity' or 
+                           (a.get('activity') and 'sports' in a.get('activity', '').lower() and 
+                            a.get('activity') != 'Walk')])
+        
+        # Check for user exclusions (direct from exclusions array)
+        exclude_sports = 'sports' in self._current_exclusions
+        exclude_cultural = 'cultural' in self._current_exclusions
+        exclude_nature = 'nature' in self._current_exclusions
+        
+        # Get date type for activity prioritization
+        date_type = preferences.date_type if preferences else 'casual'
         
         # Get used location IDs to avoid duplicates
         used_location_ids = set()
@@ -374,60 +629,83 @@ class AIDatePlanner:
         available_attractions = [loc for loc in location_groups.get('attraction', []) if loc.id not in used_location_ids]
         available_heritage = [loc for loc in location_groups.get('heritage', []) if loc.id not in used_location_ids]
         
-        # Check for other exclusions
-        exclude_cultural = self._should_exclude_activity_type(user_query, 'cultural', parsed_query)
-        exclude_nature = self._should_exclude_activity_type(user_query, 'nature', parsed_query)
+        # Choose activity type based on date type preferences, time, and what's available
+        location = None
+        activity_duration = 1.0
+        activity_type = None
         
-        # Check if user explicitly wants walks despite cultural exclusion
-        wants_walks = user_query and any(word in user_query.lower() for word in ['walk', 'walking', 'stroll', 'hike'])
+        # DATE TYPE PRIORITIZATION:
+        # Adventurous → prioritize sports/activities and nature walks
+        # Cultural → prioritize museums/heritage sites and cultural attractions
+        # Romantic/Casual → use normal flow
         
-        # Use LLM requirements to prioritize activities
-        if parsed_query:
-            activity_requirements = self.llm_query_parser.get_activity_requirements(parsed_query)
-            # If user wants sports and we haven't planned any sports yet, prioritize sports
-            if activity_requirements.get('sports', 0) > 0 and available_activities and not exclude_sports:
+        if date_type == 'adventurous':
+            # ADVENTUROUS: Prioritize sports/activities first (max 1), then nature attractions
+            if location is None and time_remaining >= 2.0 and available_activities and not exclude_sports and sports_count < 1:
                 location = available_activities[0]
                 activity_duration = min(2.0, time_remaining)
                 activity_type = self._get_simple_activity_type(location)
-                return self._create_activity_dict(location, current_time, activity_duration, activity_type, existing_itinerary)
+                print(f"  🏃 Adventurous date: Selected sports activity (1/{1} max)")
+            elif location is None and time_remaining >= 1.5 and available_attractions and not exclude_nature:
+                # Look for nature/walk attractions
+                for attraction in available_attractions:
+                    activity_type = self._get_attraction_activity_type(attraction, exclude_nature, exclude_cultural)
+                    if activity_type == 'Walk':  # Prioritize walks for adventurous
+                        location = attraction
+                        activity_duration = min(2.0, time_remaining)
+                        print(f"  🚶 Adventurous date: Selected nature walk")
+                        break
         
-        # Choose activity type based on remaining time and what's available
-        if time_remaining >= 2.0 and available_attractions and not exclude_sports and (not exclude_cultural or wants_walks):
-            # Prefer attractions for cultural dates, or allow walks if explicitly requested
-            location = available_attractions[0]
-            activity_duration = min(2.0, time_remaining)
-            # Check if it's a nature activity and if nature is excluded
-            if 'walk' in location.name.lower() or 'park' in location.name.lower() or 'nature' in location.name.lower() or 'reserve' in location.name.lower() or 'garden' in location.name.lower():
-                if exclude_nature and not wants_walks:
-                    activity_type = 'Cultural Visit'  # Force cultural instead of nature
-                else:
-                    activity_type = 'Walk'  # Allow walks if explicitly requested
-            else:
-                activity_type = 'Cultural Visit'
-        elif time_remaining >= 2.0 and available_activities and activity_count < 1 and not exclude_sports:  # Max 1 sports activity, only if not excluded
+        elif date_type == 'cultural':
+            # CULTURAL: Prioritize heritage sites and museums first
+            if location is None and time_remaining >= 1.5 and available_heritage and not exclude_cultural:
+                location = available_heritage[0]
+                activity_duration = min(1.5, time_remaining)
+                activity_type = 'Heritage Walk'
+                print(f"  🏛️ Cultural date: Selected heritage site")
+            elif location is None and time_remaining >= 1.5 and available_attractions and not exclude_cultural:
+                # Look for cultural attractions (museums, galleries)
+                for attraction in available_attractions:
+                    activity_type = self._get_attraction_activity_type(attraction, exclude_nature, exclude_cultural)
+                    if activity_type == 'Cultural Visit':  # Prioritize cultural for cultural dates
+                        location = attraction
+                        activity_duration = min(2.0, time_remaining)
+                        print(f"  🎨 Cultural date: Selected cultural attraction")
+                        break
+        
+        # FALLBACK: Standard selection for romantic/casual OR if date-type-specific search failed
+        if location is None and time_remaining >= 2.0 and available_attractions:
+            # Check each attraction to find one that's not excluded
+            for attraction in available_attractions:
+                activity_type = self._get_attraction_activity_type(attraction, exclude_nature, exclude_cultural)
+                if activity_type is not None:  # Found a valid attraction
+                    location = attraction
+                    activity_duration = min(2.0, time_remaining)
+                    break
+        
+        if location is None and time_remaining >= 2.0 and available_activities and sports_count < 1 and not exclude_sports:
             location = available_activities[0]
             activity_duration = min(2.0, time_remaining)
             activity_type = self._get_simple_activity_type(location)
-        elif time_remaining >= 1.5 and available_heritage and (not exclude_cultural or wants_walks):
+        elif location is None and time_remaining >= 1.5 and available_heritage and not exclude_cultural:
             location = available_heritage[0]
             activity_duration = min(1.5, time_remaining)
             activity_type = 'Heritage Walk'
-        elif time_remaining >= 1.0 and available_attractions and (not exclude_cultural or wants_walks):
-            location = available_attractions[0]
-            activity_duration = min(1.5, time_remaining)
-            # Check if it's a nature activity and if nature is excluded
-            if 'walk' in location.name.lower() or 'park' in location.name.lower() or 'nature' in location.name.lower() or 'reserve' in location.name.lower() or 'garden' in location.name.lower():
-                if exclude_nature and not wants_walks:
-                    activity_type = 'Cultural Visit'  # Force cultural instead of nature
-                else:
-                    activity_type = 'Walk'  # Allow walks if explicitly requested
-            else:
-                activity_type = 'Cultural Visit'
-        elif time_remaining >= 1.0 and available_activities and activity_count < 1 and not exclude_sports:  # Max 1 sports activity, only if not excluded
+        elif location is None and time_remaining >= 1.0 and available_attractions:
+            # Check each attraction to find one that's not excluded
+            for attraction in available_attractions:
+                activity_type = self._get_attraction_activity_type(attraction, exclude_nature, exclude_cultural)
+                if activity_type is not None:  # Found a valid attraction
+                    location = attraction
+                    activity_duration = min(1.5, time_remaining)
+                    break
+        
+        if location is None and time_remaining >= 1.0 and available_activities and sports_count < 1 and not exclude_sports:
             location = available_activities[0]
             activity_duration = min(1.5, time_remaining)
             activity_type = self._get_simple_activity_type(location)
-        else:
+        
+        if location is None:
             return None
         
         # Add travel time if there are previous activities
@@ -779,24 +1057,6 @@ class AIDatePlanner:
         
         return round(travel_time_hours, 2)
     
-    def _should_exclude_activity_type(self, user_query: str = None, activity_type: str = None, parsed_query: ParsedQuery = None) -> bool:
-        """Check if user explicitly wants to exclude specific activity types using LLM parsing"""
-        if not user_query or not activity_type:
-            return False
-        
-        # Use LLM parsing if available
-        if parsed_query:
-            exclusion_flags = self.llm_query_parser.get_exclusion_flags(parsed_query)
-            return exclusion_flags.get(activity_type.lower(), False)
-        
-        # Simple fallback for basic exclusions
-        user_query_lower = user_query.lower()
-        return f"no {activity_type}" in user_query_lower or f"avoid {activity_type}" in user_query_lower
-    
-    def _should_exclude_sports(self, user_query: str = None, parsed_query: ParsedQuery = None) -> bool:
-        """Check if user explicitly wants to exclude sports activities"""
-        return self._should_exclude_activity_type(user_query, 'sports', parsed_query)
-    
     def _create_activity_dict(self, location: Location, current_time: str, duration: float, activity_type: str, existing_itinerary: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create activity dictionary with travel time"""
         # Add travel time if there are previous activities
@@ -822,8 +1082,7 @@ class AIDatePlanner:
         }
     
     def _get_simple_activity_type(self, location: Location) -> str:
-        """Simple activity type determination - let the LLM handle the details"""
-        # Just return a basic type based on location type
+        """Simple activity type determination"""
         if location.location_type == 'activity':
             return 'Sports Activity'
         elif location.location_type == 'attraction':
@@ -833,24 +1092,71 @@ class AIDatePlanner:
         else:
             return 'Activity'
     
+    def _get_attraction_activity_type(self, location: Location, exclude_nature: bool = False, exclude_cultural: bool = False) -> Optional[str]:
+        """Determine activity type for attraction based on its characteristics, returns None if should be excluded"""
+        name_lower = location.name.lower()
+        desc_lower = (location.description or '').lower()
+        text_to_search = f"{name_lower} {desc_lower}"
+        
+        # Check if it's a nature location
+        nature_keywords = ['walk', 'park', 'nature', 'reserve', 'garden', 'botanical', 'trail', 'outdoor']
+        if any(keyword in text_to_search for keyword in nature_keywords):
+            if exclude_nature:
+                return None  # Skip nature locations if excluded
+            return 'Walk'
+        
+        # Check if it's explicitly cultural
+        cultural_keywords = ['museum', 'gallery', 'art', 'heritage', 'historical', 'cultural', 'exhibition', 'temple', 'worship', 'church', 'mosque', 'shrine', 'cathedral']
+        if any(keyword in text_to_search for keyword in cultural_keywords):
+            if exclude_cultural:
+                return None  # Skip cultural locations if excluded
+            return 'Cultural Visit'
+        
+        # Check if it's a shopping location
+        shopping_keywords = ['shopping', 'shop', 'mall', 'retail', 'boutique', 'orchard road', 'store']
+        if any(keyword in text_to_search for keyword in shopping_keywords):
+            return 'Shopping'  # ✅ Always allowed (not in exclusions)
+        
+        # Default: general attraction (always allowed)
+        return 'Attraction Visit'
+    
     def _estimate_cost(self, itinerary: List[Dict[str, Any]], budget_tier: str) -> str:
-        """Estimate total cost based on budget tier and activities"""
-        cost_per_person = {
-            "$": 20,
-            "$$": 50,
-            "$$$": 100,
-            "$$$$": 200
+        """Estimate total cost based on budget tier and meal-specific pricing"""
+        total_min = 0
+        total_max = 0
+        
+        # Meal-specific costs per person
+        meal_costs = {
+            "Coffee/Breakfast": (10, 10),     # Fixed $10 per person
+            "Coffee Break": (10, 10),         # Fixed $10 per person
+            "Lunch": (self._get_budget_cost(budget_tier, 0.8)),  # 80% of budget tier
+            "Dinner": (self._get_budget_cost(budget_tier, 1.0)),  # Full budget tier
+            "Late Dinner": (self._get_budget_cost(budget_tier, 1.0)),  # Full budget tier
         }
         
-        base_cost = cost_per_person.get(budget_tier, 50)
-        activity_count = len(itinerary)
+        for item in itinerary:
+            if item.get('type') == 'food':
+                meal_type = item.get('activity', '')
+                if meal_type in meal_costs:
+                    cost_range = meal_costs[meal_type]
+                    total_min += cost_range[0]
+                    total_max += cost_range[1]
         
-        if activity_count <= 2:
-            return f"${base_cost}-${base_cost + 20} per person"
-        elif activity_count <= 4:
-            return f"${base_cost + 20}-${base_cost + 50} per person"
-        else:
-            return f"${base_cost + 50}-${base_cost + 100} per person"
+        if total_min == 0 and total_max == 0:
+            return "Minimal cost (no meals planned)"
+        
+        return f"${total_min}-${total_max} per person"
+    
+    def _get_budget_cost(self, budget_tier: str, multiplier: float = 1.0) -> tuple:
+        """Get cost range for a budget tier with multiplier"""
+        base_costs = {
+            "$": (10, 15),
+            "$$": (20, 40),
+            "$$$": (50, 70)
+        }
+        
+        base = base_costs.get(budget_tier, (20, 40))
+        return (int(base[0] * multiplier), int(base[1] * multiplier))
     
     def _generate_summary(self, itinerary: List[Dict[str, Any]], preferences: UserPreferences) -> str:
         """Generate a summary of the date plan"""
@@ -860,7 +1166,16 @@ class AIDatePlanner:
             start_time = activity.get('start_time', activity.get('time', 'Unknown'))
             summary += f"• {start_time}: {activity['activity']} at {activity['location']}\n"
         
-        summary += f"\nPerfect for a {preferences.date_type} experience with {', '.join(preferences.interests)} interests!"
+        # Custom taglines for each date type
+        taglines = {
+            'romantic': "An intimate journey designed to create lasting memories together.",
+            'casual': "A relaxed and enjoyable day exploring what Singapore has to offer.",
+            'adventurous': "An exciting experience filled with unique discoveries and flavors.",
+            'cultural': "A curated exploration of tradition, heritage, and authenticity."
+        }
+        
+        tagline = taglines.get(preferences.date_type, "A thoughtfully planned experience curated just for you.")
+        summary += f"\n{tagline}"
         
         return summary
     

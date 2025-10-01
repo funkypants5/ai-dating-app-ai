@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Setup script for AI Date Planner RAG embeddings.
 Run this once to generate embeddings for all locations and test the date planning system.
 """
+
+import sys
+import io
+
+# Fix Windows console encoding for emojis
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from ai.ai_date_planner.ai_date_planner import AIDatePlanner
 from ai.ai_date_planner.rule_engine import UserPreferences
 
 def main():
     """Setup and test the AI Date Planner system"""
-    print("🎯 AI Date Planner - Setup & Test")
+    print("AI Date Planner - Setup & Test")
     print("=" * 50)
     
     # Initialize the AI Date Planner
@@ -38,8 +47,7 @@ def main():
         start_longitude=103.8198,
         interests=['food', 'culture', 'nature'],
         budget_tier="$$",
-        date_type="romantic",
-        preferred_location_types=['food', 'attraction', 'activity', 'heritage']
+        date_type="romantic"
     )
     
     print(f"Preferences: {preferences.start_time} - {preferences.end_time}")

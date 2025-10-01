@@ -267,18 +267,39 @@ class DataProcessor:
                 return address
         
         # Try to build address from direct fields (for restaurants)
+        # Format: Blk number + street, #floor-unit, Singapore postal
         address_parts = []
         
-        # Restaurant address fields - build Google Maps style address
+        # Build block + street as first part
+        block_street = []
         if 'BLK_HOUSE' in properties and properties['BLK_HOUSE']:
-            address_parts.append(str(properties['BLK_HOUSE']))
+            block_street.append(f"Blk {properties['BLK_HOUSE']}")
         if 'STR_NAME' in properties and properties['STR_NAME']:
-            address_parts.append(str(properties['STR_NAME']))
-        if 'UNIT_NO' in properties and properties['UNIT_NO']:
-            address_parts.append(f"#{properties['UNIT_NO']}")
+            block_street.append(str(properties['STR_NAME']))
         
-        # Add Singapore if we have address parts
-        if address_parts:
+        if block_street:
+            address_parts.append(' '.join(block_street))
+        
+        # Build unit number with floor: #floor-unit
+        level_no = properties.get('LEVEL_NO', '').strip() if 'LEVEL_NO' in properties else None
+        unit_no = properties.get('UNIT_NO', '').strip() if 'UNIT_NO' in properties else None
+        
+        if level_no and unit_no:
+            # Format floor number (01, 02, B2, etc.)
+            if level_no.isdigit():
+                level_formatted = level_no.zfill(2)  # "1" → "01"
+            else:
+                level_formatted = level_no  # "B2" stays "B2"
+            address_parts.append(f"#{level_formatted}-{unit_no}")
+        elif unit_no:
+            # If only unit_no, still add it
+            address_parts.append(f"#{unit_no}")
+        
+        # Add postal code
+        if 'POSTCODE' in properties and properties['POSTCODE']:
+            address_parts.append(f"Singapore {properties['POSTCODE']}")
+        elif address_parts:
+            # If no postcode but have address, add generic Singapore
             address_parts.append("Singapore")
         
         return ', '.join(address_parts) if address_parts else None
@@ -293,33 +314,55 @@ class DataProcessor:
             if address_match:
                 return address_match.group(1).strip()
             
-            # Try building full address from restaurant fields (BLK_HOUSE + STR_NAME + UNIT_NO + POSTCODE)
+            # Try building full address from restaurant fields (BLK_HOUSE + STR_NAME + LEVEL_NO + UNIT_NO + POSTCODE)
+            # Format: Blk number + street, #floor-unit, Singapore postal
             address_parts = []
+            block_street = []
             
-            # Restaurant address fields
+            # Extract block and street
             blk_house_match = re.search(r'<th>BLK_HOUSE</th>\s*<td>([^<]+)</td>', html_description)
             if blk_house_match:
                 blk_house = blk_house_match.group(1).strip()
                 if blk_house and blk_house != '':
-                    address_parts.append(blk_house)
+                    block_street.append(f"Blk {blk_house}")
             
             str_name_match = re.search(r'<th>STR_NAME</th>\s*<td>([^<]+)</td>', html_description)
             if str_name_match:
                 str_name = str_name_match.group(1).strip()
                 if str_name and str_name != '':
-                    address_parts.append(str_name)
+                    block_street.append(str_name)
+            
+            # Extract level (floor) and unit number
+            level_no_match = re.search(r'<th>LEVEL_NO</th>\s*<td>([^<]+)</td>', html_description)
+            level_no = level_no_match.group(1).strip() if level_no_match else None
             
             unit_no_match = re.search(r'<th>UNIT_NO</th>\s*<td>([^<]+)</td>', html_description)
-            if unit_no_match:
-                unit_no = unit_no_match.group(1).strip()
-                if unit_no and unit_no != '':
-                    address_parts.append(f"#{unit_no}")
+            unit_no = unit_no_match.group(1).strip() if unit_no_match else None
             
+            # Extract postcode
             postcode_match = re.search(r'<th>POSTCODE</th>\s*<td>([^<]+)</td>', html_description)
-            if postcode_match:
-                postcode = postcode_match.group(1).strip()
-                if postcode and postcode != '':
-                    address_parts.append(f"Singapore {postcode}")
+            postcode = postcode_match.group(1).strip() if postcode_match else None
+            
+            # Build final address
+            if block_street:
+                address_parts.append(' '.join(block_street))
+            
+            # Format unit with floor: #floor-unit
+            if level_no and level_no != '' and unit_no and unit_no != '':
+                # Format floor number (01, 02, B2, etc.)
+                if level_no.isdigit():
+                    level_formatted = level_no.zfill(2)  # "1" → "01"
+                else:
+                    level_formatted = level_no  # "B2" stays "B2"
+                address_parts.append(f"#{level_formatted}-{unit_no}")
+            elif unit_no and unit_no != '':
+                # If only unit_no, still add it
+                address_parts.append(f"#{unit_no}")
+            
+            if postcode and postcode != '':
+                address_parts.append(f"Singapore {postcode}")
+            elif address_parts:
+                address_parts.append("Singapore")
             
             # If we have restaurant address parts, return them
             if address_parts:

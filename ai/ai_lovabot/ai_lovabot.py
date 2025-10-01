@@ -2,8 +2,10 @@ from dotenv import load_dotenv
 import os
 import glob
 import pickle
+import requests
+from bs4 import BeautifulSoup
 from langchain.chat_models import init_chat_model
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -28,15 +30,47 @@ def init_ai():
     os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
     model = init_chat_model("gpt-4o-mini", model_provider="openai")
     
-    # Initialize embeddings and vector store for RAG
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    # Initialize embeddings and vector store for RAG using OpenAI
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     vector_store = InMemoryVectorStore(embeddings)
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
     return model
 
+def scrape_website(url):
+    """Scrape text content from a website URL"""
+    try:
+        print(f"Fetching content from: {url}")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Parse HTML
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "footer", "header"]):
+            script.decompose()
+        
+        # Get text content
+        text = soup.get_text(separator='\n', strip=True)
+        
+        # Clean up extra whitespace
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        
+        print(f"Successfully extracted {len(text)} characters from {url}")
+        return text
+        
+    except Exception as e:
+        print(f"Error scraping {url}: {e}")
+        return None
+
 def add_dating_content():
-    """Read all PDFs from data folder and add to vector store, then save embeddings"""
+    """Read all PDFs from data folder and scrape websites, then add to vector store and save embeddings"""
     global vector_store, text_splitter, embeddings
     
     if vector_store is None:
@@ -49,36 +83,53 @@ def add_dating_content():
         load_embeddings()
         return {"message": "Loaded existing embeddings from file"}
     
-    print("Processing PDFs and creating embeddings...")
-    
-    # Get all PDF files from data folder
-    pdf_files = glob.glob("ai/ai_lovabot/data/*.pdf")
-    
-    if not pdf_files:
-        return {"message": "No PDF files found in data folder"}
+    print("Processing PDFs and websites, creating embeddings...")
     
     all_documents = []
     
-    # Process each PDF
-    for pdf_file in pdf_files:
-        print(f"Processing: {pdf_file}")
-        try:
-            # Read PDF content
-            reader = PdfReader(pdf_file)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-            
+    # 1. Process PDF files
+    pdf_files = glob.glob("ai/ai_lovabot/data/*.pdf")
+    
+    if pdf_files:
+        print(f"\nProcessing {len(pdf_files)} PDF file(s)...")
+        for pdf_file in pdf_files:
+            print(f"Processing: {pdf_file}")
+            try:
+                # Read PDF content
+                reader = PdfReader(pdf_file)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+                
+                # Create document
+                doc = Document(
+                    page_content=text,
+                    metadata={"source": pdf_file, "type": "dating_article_pdf"}
+                )
+                all_documents.append(doc)
+                
+            except Exception as e:
+                print(f"Error processing {pdf_file}: {e}")
+                continue
+    else:
+        print("No PDF files found in data folder")
+    
+    # 2. Process websites
+    websites = [
+        "https://theindependent.sg/21-of-singaporeans-cannot-accept-going-on-a-first-date-at-a-hawker-center-survey/",
+        "https://www.traveloka.com/en-sg/explore/destination/romantic-places-in-singapore-acc/363645"
+    ]
+    
+    print(f"\nProcessing {len(websites)} website(s)...")
+    for url in websites:
+        text = scrape_website(url)
+        if text:
             # Create document
             doc = Document(
                 page_content=text,
-                metadata={"source": pdf_file, "type": "dating_article"}
+                metadata={"source": url, "type": "dating_article_web"}
             )
             all_documents.append(doc)
-            
-        except Exception as e:
-            print(f"Error processing {pdf_file}: {e}")
-            continue
     
     if not all_documents:
         return {"message": "No documents could be processed"}
@@ -92,7 +143,10 @@ def add_dating_content():
     # Save embeddings to file (pass the documents directly)
     save_embeddings(all_splits)
     
-    return {"message": f"Added {len(all_splits)} document chunks from {len(all_documents)} PDFs to vector store"}
+    pdf_count = len(pdf_files) if pdf_files else 0
+    web_count = len([d for d in all_documents if d.metadata.get("type") == "dating_article_web"])
+    
+    return {"message": f"Added {len(all_splits)} document chunks from {pdf_count} PDFs and {web_count} websites to vector store"}
 
 def save_embeddings(documents=None):
     """Save vector store embeddings to file"""
@@ -120,6 +174,10 @@ def save_embeddings(documents=None):
 def load_embeddings():
     """Load vector store embeddings from file"""
     global vector_store, embeddings
+    
+    # Make sure embeddings model is initialized
+    if embeddings is None:
+        init_ai()
     
     embeddings_file = "ai/ai_lovabot/embeddings.pkl"
     if os.path.exists(embeddings_file):
@@ -152,8 +210,22 @@ def chat(messages: list):
     if model is None:
         init_ai()
     
-    # Try to load existing embeddings if vector store is empty
+    # Try to load existing embeddings if vector store is empty or None
+    # Check if vector store has no documents by trying a test search
+    needs_loading = False
     if vector_store is None:
+        needs_loading = True
+    else:
+        # Test if vector store is empty by checking if it can retrieve anything
+        try:
+            test_results = vector_store.similarity_search("test", k=1)
+            if len(test_results) == 0:
+                needs_loading = True
+        except:
+            needs_loading = True
+    
+    if needs_loading:
+        print("Loading embeddings...")
         load_embeddings()
     
     # Get the last user message (current question)
@@ -167,10 +239,18 @@ def chat(messages: list):
         return {"answer": "No user question found."}
     
     # Search for relevant context using RAG
-    retrieved_docs = vector_store.similarity_search(current_question)
     context = ""
-    if retrieved_docs:
-        context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+    if vector_store is not None:
+        retrieved_docs = vector_store.similarity_search(current_question)
+        print(f"\nRAG Search Query: {current_question}")
+        print(f"Retrieved {len(retrieved_docs)} documents")
+        if retrieved_docs:
+            for i, doc in enumerate(retrieved_docs):
+                print(f"\n--- Document {i+1} (Source: {doc.metadata.get('source', 'unknown')}) ---")
+                print(f"{doc.page_content[:200]}...")
+            context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        else:
+            print("WARNING: No documents retrieved from vector store")
     
     # Load system prompt
     system_prompt = load_system_prompt()

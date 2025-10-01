@@ -124,7 +124,7 @@ class DatePlanRequest(BaseModel):
     budget_tier: str = "$$"
     date_type: str = "casual"
     preferred_location_types: List[str] = ["food", "attraction", "activity", "heritage"]
-    user_query: Optional[str] = None
+    exclusions: Optional[List[str]] = None  # What user does NOT want
 
 @app.post("/ai/plan-date")
 def plan_date(request: DatePlanRequest):
@@ -145,8 +145,8 @@ def plan_date(request: DatePlanRequest):
             preferred_location_types=request.preferred_location_types
         )
         
-        # Plan the date
-        result = planner.plan_date(preferences, request.user_query)
+        # Plan the date with exclusions
+        result = planner.plan_date(preferences, request.exclusions)
         
         return {
             "success": True,

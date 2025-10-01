@@ -26,14 +26,13 @@ class RAGService:
         self.embedding_service = embedding_service
         self.max_results = 50  # Maximum locations to return
     
-    def find_relevant_locations(self, filter_result: FilterResult, preferences: UserPreferences, user_query: str = None) -> RAGResult:
+    def find_relevant_locations(self, filter_result: FilterResult, preferences: UserPreferences) -> RAGResult:
         """
         Find the most relevant locations using semantic similarity search.
         
         Args:
             filter_result: Result from rule-based filtering
             preferences: User preferences
-            user_query: Optional specific user query (e.g., "romantic dinner with city view")
             
         Returns:
             RAGResult with relevant locations and scores
@@ -41,7 +40,7 @@ class RAGService:
         print(f"Starting RAG-based location retrieval with {len(filter_result.filtered_locations)} filtered locations...")
         
         # Generate query embedding
-        query_text = self._build_query_text(preferences, user_query)
+        query_text = self._build_query_text(preferences)
         query_embedding = self.embedding_service.generate_embedding(query_text)
         
         print(f"Generated query embedding for: '{query_text[:100]}...'")
@@ -58,7 +57,6 @@ class RAGService:
 
         if use_faiss:
             # Use FAISS to get top similar locations by query, then intersect with filtered set
-            query_text = self._build_query_text(preferences, user_query)
             faiss_results = self.embedding_service.similarity_search(query_text, k=200)
             faiss_ids = {res['location'].id: res['score'] for res in faiss_results}
 
@@ -106,13 +104,9 @@ class RAGService:
             }
         )
     
-    def _build_query_text(self, preferences: UserPreferences, user_query: str = None) -> str:
-        """Build a comprehensive query text from preferences and user input"""
+    def _build_query_text(self, preferences: UserPreferences) -> str:
+        """Build a comprehensive query text from preferences"""
         query_parts = []
-        
-        # Add user's specific query if provided
-        if user_query:
-            query_parts.append(user_query)
         
         # Add time-based context
         time_context = self._get_time_context(preferences)

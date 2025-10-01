@@ -123,8 +123,7 @@ class DatePlanRequest(BaseModel):
     interests: List[str] = ["food", "culture", "nature"]
     budget_tier: str = "$$"
     date_type: str = "casual"
-    preferred_location_types: List[str] = ["food", "attraction", "activity", "heritage"]
-    exclusions: Optional[List[str]] = None  # What user does NOT want
+    exclusions: Optional[List[str]] = None  # Backend-only: What user does NOT want
 
 @app.post("/ai/plan-date")
 def plan_date(request: DatePlanRequest):
@@ -141,8 +140,7 @@ def plan_date(request: DatePlanRequest):
             start_longitude=request.start_longitude,
             interests=request.interests,
             budget_tier=request.budget_tier,
-            date_type=request.date_type,
-            preferred_location_types=request.preferred_location_types
+            date_type=request.date_type
         )
         
         # Plan the date with exclusions

@@ -24,7 +24,7 @@ class RAGService:
     def __init__(self, embedding_service: EmbeddingService):
         """Initialize RAG service with embedding service"""
         self.embedding_service = embedding_service
-        self.max_results = 50  # Maximum locations to return
+        self.max_results = 100  # Maximum locations to return for better variety
     
     def find_relevant_locations(self, filter_result: FilterResult, preferences: UserPreferences) -> RAGResult:
         """
@@ -88,8 +88,8 @@ class RAGService:
             filter_result.location_scores
         )
         
-        # Take top results
-        top_locations = sorted_locations[:self.max_results]
+        # DIVERSITY SAMPLING: Ensure mix of location types, not just food
+        top_locations = self._sample_diverse_locations(sorted_locations, self.max_results)
         
         print(f"RAG retrieval complete: {len(top_locations)} most relevant locations selected")
         
@@ -128,11 +128,6 @@ class RAGService:
         if budget_context:
             query_parts.append(budget_context)
         
-        # Add location type context
-        location_type_context = self._get_location_type_context(preferences.preferred_location_types)
-        if location_type_context:
-            query_parts.append(location_type_context)
-        
         return " ".join(query_parts)
     
     def _get_time_context(self, preferences: UserPreferences) -> str:
@@ -166,12 +161,12 @@ class RAGService:
         return f"interested in {', '.join(descriptions)}"
     
     def _get_date_type_context(self, date_type: str) -> str:
-        """Generate date type context for the query"""
+        """Generate date type context for the query with enhanced semantic matching"""
         date_type_descriptions = {
-            "casual": "casual and relaxed atmosphere, comfortable settings",
-            "romantic": "romantic and intimate atmosphere, cozy and private spaces",
-            "adventurous": "adventure and outdoor activities, exciting experiences",
-            "cultural": "cultural and educational experiences, historical significance"
+            "casual": "casual and relaxed atmosphere, comfortable settings, laid-back vibe, easy-going environment, friendly venues, bistro dining, relaxed cafes, comfortable restaurants",
+            "romantic": "romantic and intimate atmosphere, cozy ambiance, candlelit dining, scenic views, sunset locations, private spaces, elegant restaurants, beautiful setting, date night vibes, couple-friendly, charming atmosphere, fine dining, rooftop dining, waterfront views",
+            "adventurous": "adventure and outdoor activities, exciting experiences, thrilling activities, active sports, unique experiences, unconventional dining, street food adventures, outdoor seating, rooftop venues, unique cuisines, fusion restaurants, experimental menus",
+            "cultural": "cultural and educational experiences, historical significance, museums, heritage sites, art galleries, traditional venues, authentic local cuisine, cultural dining, heritage restaurants, traditional ambiance, peranakan food, historical settings"
         }
         
         return date_type_descriptions.get(date_type, f"{date_type} atmosphere")
@@ -186,21 +181,6 @@ class RAGService:
         }
         
         return budget_descriptions.get(budget_tier, f"{budget_tier} budget range")
-    
-    def _get_location_type_context(self, location_types: List[str]) -> str:
-        """Generate location type context for the query"""
-        if not location_types:
-            return ""
-        
-        type_descriptions = {
-            "food": "restaurants and dining",
-            "attraction": "tourist attractions and landmarks",
-            "activity": "activities and experiences",
-            "heritage": "heritage sites and cultural locations"
-        }
-        
-        descriptions = [type_descriptions.get(loc_type, loc_type) for loc_type in location_types]
-        return f"looking for {', '.join(descriptions)}"
     
     def _calculate_relevance_scores(self, locations: List[Location], query_embedding: np.ndarray, proximity_scores: Dict[str, float]) -> Dict[str, float]:
         """Calculate semantic relevance scores for locations"""
@@ -240,15 +220,15 @@ class RAGService:
     
     def _rank_locations(self, locations: List[Location], relevance_scores: Dict[str, float], proximity_scores: Dict[str, float]) -> List[Location]:
         """Rank locations by combined relevance and proximity scores"""
-        # Combine relevance (50%) and proximity (50%) scores
+        # Combine relevance (70%) and proximity (30%) scores - prioritize semantic match over distance
         combined_scores = {}
         
         for location in locations:
             relevance = relevance_scores.get(location.id, 0.0)
             proximity = proximity_scores.get(location.id, 0.0)
             
-            # Weighted combination
-            combined_score = 0.5 * relevance + 0.5 * proximity
+            # Weighted combination: 70% semantic relevance, 30% proximity
+            combined_score = 0.7 * relevance + 0.3 * proximity
             combined_scores[location.id] = combined_score
         
         # Sort by combined score (descending)
@@ -294,3 +274,53 @@ class RAGService:
             explanation += "Status: Low relevance to your query"
         
         return explanation
+    
+    def _sample_diverse_locations(self, sorted_locations: List[Location], max_results: int) -> List[Location]:
+        """Sample locations with diversity to ensure mix of location types"""
+        # Group by type
+        by_type = {
+            'food': [],
+            'attraction': [],
+            'activity': [],
+            'heritage': []
+        }
+        
+        for loc in sorted_locations:
+            if loc.location_type in by_type:
+                by_type[loc.location_type].append(loc)
+        
+        # Calculate allocation (ensure at least some of each type)
+        total_non_food = len(by_type['attraction']) + len(by_type['activity']) + len(by_type['heritage'])
+        
+        if total_non_food == 0:
+            # All food, just return top N
+            return sorted_locations[:max_results]
+        
+        # Reserve slots for non-food (at least 30% of results)
+        min_non_food = max(30, int(max_results * 0.3))  # At least 30 non-food locations
+        max_food = max_results - min_non_food
+        
+        # Collect results with diversity
+        results = []
+        
+        # Add food locations (up to max_food)
+        results.extend(by_type['food'][:max_food])
+        
+        # Add non-food locations proportionally
+        remaining_slots = max_results - len(results)
+        
+        # Distribute remaining slots across non-food types
+        for loc_type in ['attraction', 'activity', 'heritage']:
+            type_locs = by_type[loc_type]
+            if type_locs and remaining_slots > 0:
+                # Take proportional share or all available, whichever is smaller
+                take_count = min(len(type_locs), max(5, remaining_slots // 3))  # At least 5 of each
+                results.extend(type_locs[:take_count])
+                remaining_slots -= take_count
+        
+        print(f"  Diversity sampling: {len([r for r in results if r.location_type == 'food'])} food, "
+              f"{len([r for r in results if r.location_type == 'attraction'])} attractions, "
+              f"{len([r for r in results if r.location_type == 'activity'])} activities, "
+              f"{len([r for r in results if r.location_type == 'heritage'])} heritage")
+        
+        return results[:max_results]

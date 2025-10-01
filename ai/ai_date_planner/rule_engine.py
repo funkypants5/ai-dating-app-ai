@@ -9,7 +9,6 @@ class UserPreferences:
     budget_tier: str = "$$"  # $, $$, $$$, $$$$
     start_latitude: Optional[float] = None  # Where the date starts
     start_longitude: Optional[float] = None  # Where the date starts
-    preferred_location_types: List[str] = None  # ['food', 'attraction', 'activity', 'heritage']
     start_time: str = "10:00"  # Start time in HH:MM format (24-hour)
     end_time: Optional[str] = None  # End time in HH:MM format (24-hour), optional
     time_of_day: str = "afternoon"  # morning, afternoon, evening, night
@@ -17,8 +16,6 @@ class UserPreferences:
     interests: List[str] = None  # ['food', 'culture', 'nature', 'sports', 'art', 'shopping']
     
     def __post_init__(self):
-        if self.preferred_location_types is None:
-            self.preferred_location_types = ['food', 'attraction', 'activity', 'heritage']
         if self.interests is None:
             self.interests = ['food', 'culture', 'nature']
         
@@ -107,7 +104,7 @@ class RuleEngine:
         
         self.interest_mapping = {
             "food": ["restaurant", "cafe", "dining", "cuisine", "food", "eat", "drink"],
-            "culture": ["museum", "gallery", "art", "cultural", "heritage", "historical", "traditional"],
+            "culture": ["museum", "gallery", "art", "cultural", "heritage", "historical", "traditional", "temple", "worship", "church", "mosque", "shrine", "cathedral"],
             "nature": ["park", "garden", "nature", "outdoor", "scenic", "botanical", "zoo"],
             "sports": ["sports", "gym", "fitness", "swimming", "tennis", "football", "basketball"],
             "art": ["art", "gallery", "museum", "creative", "exhibition", "sculpture", "painting"],
@@ -132,12 +129,14 @@ class RuleEngine:
         filter_stats = {}
         excluded_count = 0
         
-        # Apply each filter
-        filtered_locations, excluded = self._filter_by_location_type(filtered_locations, preferences.preferred_location_types)
-        excluded_count += excluded
-        filter_stats['location_type'] = {'excluded': excluded, 'remaining': len(filtered_locations)}
+        # STEP 1: Apply exclusions FIRST (before interests)
+        if exclusions:
+            filtered_locations, excluded = self._filter_by_exclusions(filtered_locations, exclusions)
+            excluded_count += excluded
+            filter_stats['exclusions'] = {'excluded': excluded, 'remaining': len(filtered_locations)}
         
-        filtered_locations, excluded = self._filter_by_interests(filtered_locations, preferences.interests, exclusions or [])
+        # STEP 2: Apply interests filter (works on already-excluded set)
+        filtered_locations, excluded = self._filter_by_interests(filtered_locations, preferences.interests)
         excluded_count += excluded
         filter_stats['interests'] = {'excluded': excluded, 'remaining': len(filtered_locations)}
         
@@ -166,30 +165,67 @@ class RuleEngine:
             excluded_count=excluded_count
         )
     
-    def _filter_by_location_type(self, locations: List[Location], allowed_types: List[str]) -> Tuple[List[Location], int]:
-        """Filter locations by type (food, attraction, activity, heritage)"""
-        if not allowed_types:
+    def _filter_by_exclusions(self, locations: List[Location], exclusions: List[str]) -> Tuple[List[Location], int]:
+        """Filter locations by exclusions (what user does NOT want)"""
+        if not exclusions:
             return locations, 0
         
-        original_count = len(locations)
-        filtered = [loc for loc in locations if loc.location_type in allowed_types]
-        excluded = original_count - len(filtered)
-        
-        print(f"  Location type filter: {excluded} excluded, {len(filtered)} remaining")
-        return filtered, excluded
-    
-    def _filter_by_interests(self, locations: List[Location], interests: List[str], exclusions: List[str] = None) -> Tuple[List[Location], int]:
-        """Filter locations by user interests with exclusion awareness"""
-        if not interests:
-            print("  Interest filter: No interests specified, keeping all")
-            return locations, 0
-        
-        exclusions = exclusions or []
         original_count = len(locations)
         filtered = []
         
         for location in locations:
-            if self._matches_interests(location, interests, exclusions):
+            if not self._matches_exclusions(location, exclusions):
+                filtered.append(location)
+        
+        excluded = original_count - len(filtered)
+        print(f"  Exclusion filter: {excluded} excluded, {len(filtered)} remaining")
+        return filtered, excluded
+    
+    def _matches_exclusions(self, location: Location, exclusions: List[str]) -> bool:
+        """Check if location matches any exclusion criteria"""
+        # NEVER exclude food locations - meals are always needed!
+        if location.location_type == 'food':
+            return False
+        
+        text_to_search = f"{location.name} {location.description}".lower()
+        
+        # Check each exclusion type
+        for exclusion in exclusions:
+            if exclusion == 'sports':
+                # Exclude sports facilities
+                if location.location_type == 'activity':
+                    return True
+                sports_keywords = self.interest_mapping.get('sports', [])
+                if any(keyword in text_to_search for keyword in sports_keywords):
+                    return True
+            
+            elif exclusion == 'cultural':
+                # Exclude cultural attractions (museums, galleries, heritage)
+                if location.location_type == 'heritage':
+                    return True
+                cultural_keywords = self.interest_mapping.get('culture', [])
+                if any(keyword in text_to_search for keyword in cultural_keywords):
+                    return True
+            
+            elif exclusion == 'nature':
+                # Exclude nature attractions (parks, gardens)
+                nature_keywords = self.interest_mapping.get('nature', [])
+                if any(keyword in text_to_search for keyword in nature_keywords):
+                    return True
+        
+        return False  # Doesn't match any exclusions
+    
+    def _filter_by_interests(self, locations: List[Location], interests: List[str]) -> Tuple[List[Location], int]:
+        """Filter locations by user interests (exclusions already applied)"""
+        if not interests:
+            print("  Interest filter: No interests specified, keeping all")
+            return locations, 0
+        
+        original_count = len(locations)
+        filtered = []
+        
+        for location in locations:
+            if self._matches_interests(location, interests):
                 filtered.append(location)
         
         excluded = original_count - len(filtered)
@@ -224,7 +260,7 @@ class RuleEngine:
         return scores
     
     def _filter_by_budget(self, locations: List[Location], budget_tier: str) -> Tuple[List[Location], int]:
-        """Filter locations by budget tier"""
+        """Filter locations by budget tier - ONLY applies to food locations"""
         if budget_tier not in self.budget_mapping:
             print(f"  Budget filter: Invalid budget tier '{budget_tier}', skipping")
             return locations, 0
@@ -233,14 +269,31 @@ class RuleEngine:
         original_count = len(locations)
         filtered = []
         
+        # Breakfast/coffee keywords - these venues should ALWAYS be available
+        breakfast_cafe_keywords = ['cafe', 'coffee', 'kopi', 'bistro', 'bakery', 'patisserie', 'espresso', 'starbucks', 'toast']
+        
         for location in locations:
-            # For now, we'll use keyword matching since we don't have actual price data
-            # In a real system, you'd have price information from external APIs
-            if self._matches_budget_keywords(location, budget_info['keywords']):
+            # CRITICAL: Budget ONLY applies to food locations!
+            # Activities, attractions, and heritage sites are FREE or budget-neutral
+            if location.location_type != 'food':
+                filtered.append(location)  # Always keep non-food locations
+                continue
+            
+            # For food locations, apply budget filtering
+            name_lower = location.name.lower()
+            desc_lower = (location.description or '').lower()
+            
+            # ALWAYS keep breakfast/coffee venues regardless of budget
+            is_breakfast_cafe = any(keyword in name_lower or keyword in desc_lower for keyword in breakfast_cafe_keywords)
+            
+            if is_breakfast_cafe:
+                filtered.append(location)
+            # For other food locations, use budget keyword matching
+            elif self._matches_budget_keywords(location, budget_info['keywords']):
                 filtered.append(location)
         
         excluded = original_count - len(filtered)
-        print(f"  Budget filter: {excluded} excluded, {len(filtered)} remaining (tier: {budget_tier})")
+        print(f"  Budget filter: {excluded} excluded, {len(filtered)} remaining (tier: {budget_tier}, budget only applies to food)")
         return filtered, excluded
     
     def _filter_by_time_preference(self, locations: List[Location], time_of_day: str) -> Tuple[List[Location], int]:
@@ -362,30 +415,12 @@ class RuleEngine:
         # Check if any date type keywords match
         return any(keyword in text_to_search for keyword in type_keywords)
     
-    def _matches_interests(self, location: Location, interests: List[str], exclusions: List[str] = None) -> bool:
-        """Check if location matches user interests and doesn't match exclusions"""
+    def _matches_interests(self, location: Location, interests: List[str]) -> bool:
+        """Check if location matches user interests (exclusions already filtered out)"""
         if not interests:
             return True
         
-        exclusions = exclusions or []
         text_to_search = f"{location.name} {location.description}".lower()
-        
-        # For attractions, check if they match excluded categories
-        if location.location_type == 'attraction':
-            # Check if it's a cultural attraction and cultural is excluded
-            if 'cultural' in exclusions:
-                cultural_keywords = self.interest_mapping.get('culture', [])
-                if any(keyword in text_to_search for keyword in cultural_keywords):
-                    return False  # Exclude cultural attractions
-            
-            # Check if it's a nature attraction and nature is excluded
-            if 'nature' in exclusions:
-                nature_keywords = self.interest_mapping.get('nature', [])
-                if any(keyword in text_to_search for keyword in nature_keywords):
-                    return False  # Exclude nature attractions
-            
-            # If attraction doesn't match excluded categories, allow it
-            # This lets shopping areas like Orchard Road through
         
         # Check if any interest keywords match
         for interest in interests:
@@ -394,30 +429,17 @@ class RuleEngine:
                 if any(keyword in text_to_search for keyword in interest_keywords):
                     return True
         
-        # If no specific interests match, be more selective
-        # Only allow if it's a food location (since meals are always needed)
+        # Always allow food locations (meals are always needed)
         if location.location_type == 'food':
             return True
         
-        # For attractions that don't match interests but also don't match exclusions, allow them
-        # This handles general attractions like shopping streets
-        if location.location_type == 'attraction':
-            # Check if it matches any excluded category
-            matches_exclusion = False
-            if 'cultural' in exclusions:
-                cultural_keywords = self.interest_mapping.get('culture', [])
-                if any(keyword in text_to_search for keyword in cultural_keywords):
-                    matches_exclusion = True
-            if 'nature' in exclusions:
-                nature_keywords = self.interest_mapping.get('nature', [])
-                if any(keyword in text_to_search for keyword in nature_keywords):
-                    matches_exclusion = True
-            
-            # If it doesn't match any exclusion, allow it (e.g., shopping areas)
-            if not matches_exclusion:
-                return True
-            
-        # For non-food locations, require interest match
+        # SIMPLIFIED: Always allow attractions and activities (they add variety to dates)
+        # Budget filter handles food selection, exclusions handle what user doesn't want
+        # Interest match is nice-to-have but not required for non-food activities
+        if location.location_type in ['attraction', 'activity', 'heritage']:
+            return True  # Let RAG and proximity scores prioritize the best ones
+        
+        # For other types, require interest match
         return False
     
     def get_filter_summary(self, result: FilterResult) -> str:
